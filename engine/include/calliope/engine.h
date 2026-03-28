@@ -3,6 +3,9 @@
 #include <vector>
 #include <memory>
 #include "calliope/audio_graph.h"
+#include "calliope/command_dispatcher.h"
+#include "calliope/parameter_registry.h"
+#include "calliope/project_state.h"
 
 namespace calliope {
 
@@ -43,6 +46,11 @@ public:
     void setMetronomeEnabled(bool enabled);
     void setMetronomeVolume(float volume);
 
+    // Command dispatcher and parameter registry
+    CommandDispatcher& getCommandDispatcher();
+    ParameterRegistry& getParameterRegistry();
+    ProjectState getProjectState() const;
+
     // State queries
     struct TransportStateInfo {
         std::string state;  // "stopped", "playing", "paused"
@@ -69,6 +77,10 @@ private:
     ~Engine();
 
     std::unique_ptr<AudioGraph> audioGraph_;
+    CommandDispatcher dispatcher_;
+    ParameterRegistry paramRegistry_;
+
+    void registerParameters();
 };
 
 } // namespace calliope
