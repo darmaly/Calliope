@@ -4,6 +4,7 @@
 #include "calliope/command_dispatcher.h"
 #include "calliope/commands/transport_commands.h"
 #include "calliope/commands/parameter_commands.h"
+#include "calliope/commands/instrument_commands.h"
 #include "calliope/project_state.h"
 #include "calliope/parameter_registry.h"
 #include <thread>
@@ -567,6 +568,13 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
     bool paramValueBool = false;
     std::string paramValueType = "double";
 
+    // Phase 4 — Instrument command parameters
+    std::string instrument;
+    int midiNote = 60;
+    float velocity = 0.8f;
+    int padIndex = 0;
+    std::string filePath;
+
     if (cmdObj.Has("params") && cmdObj.Get("params").IsObject()) {
         auto params = cmdObj.Get("params").As<Napi::Object>();
         if (params.Has("bpm") && params.Get("bpm").IsNumber())
@@ -585,6 +593,17 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
             volume = params.Get("volume").As<Napi::Number>().FloatValue();
         if (params.Has("id") && params.Get("id").IsString())
             paramId = params.Get("id").As<Napi::String>().Utf8Value();
+        // Phase 4 — Instrument params
+        if (params.Has("instrument") && params.Get("instrument").IsString())
+            instrument = params.Get("instrument").As<Napi::String>().Utf8Value();
+        if (params.Has("note") && params.Get("note").IsNumber())
+            midiNote = params.Get("note").As<Napi::Number>().Int32Value();
+        if (params.Has("velocity") && params.Get("velocity").IsNumber())
+            velocity = params.Get("velocity").As<Napi::Number>().FloatValue();
+        if (params.Has("padIndex") && params.Get("padIndex").IsNumber())
+            padIndex = params.Get("padIndex").As<Napi::Number>().Int32Value();
+        if (params.Has("filePath") && params.Get("filePath").IsString())
+            filePath = params.Get("filePath").As<Napi::String>().Utf8Value();
         if (params.Has("value")) {
             auto val = params.Get("value");
             if (val.IsNumber()) {
@@ -608,7 +627,8 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
 
     std::thread([deferred, tsfn, command, bpm, numerator, denominator,
                  startBeat, endBeat, enabled, volume,
-                 paramId, paramValueDouble, paramValueBool, paramValueType]() {
+                 paramId, paramValueDouble, paramValueBool, paramValueType,
+                 instrument, midiNote, velocity, padIndex, filePath]() {
         auto& engine = calliope::Engine::getInstance();
         std::unique_ptr<calliope::Command> cmd;
 
@@ -639,6 +659,30 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
             }
             cmd = std::make_unique<calliope::SetParameterCommand>(
                 engine.getParameterRegistry(), juce::String(paramId), val);
+        } else if (command == "instrument.noteOn") {
+            // Resolve instrument by name
+            juce::AudioProcessor* proc = nullptr;
+            if (instrument == "polysynth")
+                proc = &engine.getAudioGraph().getPolySynth();
+            else if (instrument == "basssynth")
+                proc = &engine.getAudioGraph().getBassSynth();
+            else if (instrument == "drumMachine")
+                proc = &engine.getAudioGraph().getDrumMachine();
+            if (proc)
+                cmd = std::make_unique<calliope::NoteOnCommand>(*proc, midiNote, velocity);
+        } else if (command == "instrument.noteOff") {
+            juce::AudioProcessor* proc = nullptr;
+            if (instrument == "polysynth")
+                proc = &engine.getAudioGraph().getPolySynth();
+            else if (instrument == "basssynth")
+                proc = &engine.getAudioGraph().getBassSynth();
+            else if (instrument == "drumMachine")
+                proc = &engine.getAudioGraph().getDrumMachine();
+            if (proc)
+                cmd = std::make_unique<calliope::NoteOffCommand>(*proc, midiNote);
+        } else if (command == "drumMachine.loadSample") {
+            cmd = std::make_unique<calliope::LoadSampleCommand>(
+                engine.getAudioGraph().getDrumMachine(), padIndex, filePath);
         }
 
         bool success = false;

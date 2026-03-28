@@ -29,7 +29,7 @@ Napi::Value SetMetronomeVolume(const Napi::CallbackInfo& info);
 Napi::Value GetTransportState(const Napi::CallbackInfo& info);
 Napi::Value GetAudioConfig(const Napi::CallbackInfo& info);
 
-// Phase 3 — Command dispatch
+// Phase 3 — Command dispatch (Phase 4 instrument commands flow through DispatchCommand)
 Napi::Value DispatchCommand(const Napi::CallbackInfo& info);
 Napi::Value CommandUndo(const Napi::CallbackInfo& info);
 Napi::Value CommandRedo(const Napi::CallbackInfo& info);

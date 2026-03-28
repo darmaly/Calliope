@@ -52,6 +52,10 @@ interface NativeAddon {
   getAudioConfig(): Promise<AudioConfig>
 
   // Phase 3 — Command dispatch
+  // Phase 4 — Instrument command types (dispatched via dispatchCommand):
+  // { command: 'instrument.noteOn', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number, velocity: number } }
+  // { command: 'instrument.noteOff', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number } }
+  // { command: 'drumMachine.loadSample', params: { padIndex: number, filePath: string } }
   dispatchCommand(cmd: { command: string; params: Record<string, unknown> }): Promise<boolean>
   commandUndo(): Promise<boolean>
   commandRedo(): Promise<boolean>

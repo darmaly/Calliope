@@ -99,7 +99,8 @@ ipcMain.handle('engine:config:getAudioConfig', async () => {
   return await native.getAudioConfig()
 })
 
-// Phase 3 — Command dispatch
+// Phase 3 — Command dispatch (Phase 4 instrument commands flow through command:dispatch)
+// Supported instrument commands: instrument.noteOn, instrument.noteOff, drumMachine.loadSample
 ipcMain.handle(
   'command:dispatch',
   async (_event, cmd: { command: string; params: Record<string, unknown> }) => {
