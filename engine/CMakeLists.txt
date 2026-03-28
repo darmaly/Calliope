@@ -2,6 +2,9 @@ add_library(calliope_engine STATIC
     src/engine.cpp
     src/test_tone.cpp
     src/transport.cpp
+    src/audio_graph.cpp
+    src/master_bus.cpp
+    src/metronome.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)
@@ -15,6 +18,7 @@ target_link_libraries(calliope_engine
         juce::juce_events
         juce::juce_dsp
         juce::juce_audio_processors
+        juce::juce_audio_utils
 )
 
 target_compile_definitions(calliope_engine
