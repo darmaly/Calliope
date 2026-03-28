@@ -60,7 +60,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 - [ ] **PROJ-01**: Project save to file and load from file with full state restoration
 - [ ] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
-- [ ] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
+- [x] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
 - [ ] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
 - [ ] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
 - [ ] **PROJ-06**: Export final mix to FLAC (lossless)
@@ -68,12 +68,12 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Architecture (AI-Ready Foundation)
 
-- [ ] **ARCH-01**: Single command dispatcher — all operations (UI, future AI) flow through one interface
-- [ ] **ARCH-02**: DAW state serializable to JSON — full project state readable by external consumers
+- [x] **ARCH-01**: Single command dispatcher — all operations (UI, future AI) flow through one interface
+- [x] **ARCH-02**: DAW state serializable to JSON — full project state readable by external consumers
 - [x] **ARCH-03**: Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer
 - [x] **ARCH-04**: Lock-free FIFO communication between audio thread and UI/command thread
-- [ ] **ARCH-05**: Every instrument and effect parameter addressable by ID via command dispatcher
-- [ ] **ARCH-06**: Command dispatcher emits events for all state changes (enables future AI state tracking)
+- [x] **ARCH-05**: Every instrument and effect parameter addressable by ID via command dispatcher
+- [x] **ARCH-06**: Command dispatcher emits events for all state changes (enables future AI state tracking)
 
 ### User Interface
 
@@ -150,11 +150,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENG-05 | Phase 2 | Complete |
 | ENG-06 | Phase 2 | Complete |
 | ARCH-04 | Phase 2 | Complete |
-| ARCH-01 | Phase 3 | Pending |
-| ARCH-02 | Phase 3 | Pending |
-| ARCH-05 | Phase 3 | Pending |
-| ARCH-06 | Phase 3 | Pending |
-| PROJ-03 | Phase 3 | Pending |
+| ARCH-01 | Phase 3 | Complete |
+| ARCH-02 | Phase 3 | Complete |
+| ARCH-05 | Phase 3 | Complete |
+| ARCH-06 | Phase 3 | Complete |
+| PROJ-03 | Phase 3 | Complete |
 | INST-01 | Phase 4 | Pending |
 | INST-02 | Phase 4 | Pending |
 | INST-03 | Phase 4 | Pending |

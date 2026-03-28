@@ -67,7 +67,7 @@ Plans:
   5. Undo/redo works across all operations with a minimum 100-operation history stack
 **Plans:** 3 plans
 Plans:
-- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [x] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
 - [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
 - [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 
