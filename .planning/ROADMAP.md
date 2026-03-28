@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Audio Engine Core** - Real-time multi-track audio processing with transport controls and lock-free threading (completed 2026-03-28)
 - [x] **Phase 3: Command Dispatcher & State** - Single command interface for all DAW operations with undo/redo and serializable state (completed 2026-03-28)
 - [ ] **Phase 4: Instruments** - Built-in synthesizers and sampler that produce sound through the audio engine
-- [ ] **Phase 5: Effects Processing** - Built-in effects chain with per-track insert routing
+- [x] **Phase 5: Effects Processing** - Built-in effects chain with per-track insert routing (completed 2026-03-28)
 - [ ] **Phase 6: Timeline & Arrangement** - Multi-track timeline view with clip management and arrangement editing
 - [ ] **Phase 7: Piano Roll** - MIDI note editor with drawing, editing, velocity, and quantize
 - [ ] **Phase 8: Mixer** - Channel strip mixer with volume, pan, mute/solo, effect inserts, and level meters
@@ -96,11 +96,11 @@ Plans:
   3. Per-track insert chains process audio in serial before reaching the master bus
   4. Limiter on the master bus controls final output loudness
   5. All effect parameters are controllable via the command dispatcher
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
 - [x] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+- [x] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 
 ### Phase 6: Timeline & Arrangement
 **Goal**: Users can arrange music on a multi-track horizontal timeline with clips, tracks, and grid snapping
@@ -115,7 +115,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
+- [x] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
 - [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 **UI hint**: yes
 
@@ -131,7 +131,7 @@ Plans:
   5. Piano roll supports scroll, zoom, and shows keyboard reference on the left edge
 **Plans:** 3 plans
 Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
+- [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
 - [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
 - [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 **UI hint**: yes
@@ -196,7 +196,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 2. Audio Engine Core | 3/3 | Complete   | 2026-03-28 |
 | 3. Command Dispatcher & State | 3/3 | Complete   | 2026-03-28 |
 | 4. Instruments | 0/3 | Planned | - |
-| 5. Effects Processing | 0/TBD | Not started | - |
+| 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
 | 6. Timeline & Arrangement | 0/TBD | Not started | - |
 | 7. Piano Roll | 0/TBD | Not started | - |
 | 8. Mixer | 0/TBD | Not started | - |
