@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-28T05:53:05.193Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-28T06:08:23.621Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 10
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 02 (audio-engine-core) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-03-28
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01 P02 | 77s | 2 tasks | 14 files |
 | Phase 02 P01 | 862s | 2 tasks | 9 files |
+| Phase 02 P02 | 812 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 02]: juce::Optional for AudioPlayHead::getPosition() return type (JUCE 8 API)
 - [Phase 02]: std::memory_order_relaxed for all Transport atomics (sufficient for single-value audio thread access)
 - [Phase 02]: Header-only LockFreeQueue template wrapping AbstractFifo for zero-overhead SPSC
+- [Phase 02]: GraphCallback pattern: custom AudioIODeviceCallback advances Transport before AudioProcessorPlayer
+- [Phase 02]: Meyer's singleton for Engine instead of static class pattern
+- [Phase 02]: Raw pointers for graph-owned processors (graph owns unique_ptrs)
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T05:53:05.189Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-28T06:08:23.616Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

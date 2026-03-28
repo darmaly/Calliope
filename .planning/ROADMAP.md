@@ -52,7 +52,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 02-01-PLAN.md -- Catch2 test infra, Transport state machine, LockFreeQueue with unit tests
-- [ ] 02-02-PLAN.md -- AudioProcessorGraph, MasterBus, Metronome, Engine singleton with tests
+- [x] 02-02-PLAN.md -- AudioProcessorGraph, MasterBus, Metronome, Engine singleton with tests
 - [ ] 02-03-PLAN.md -- Native bridge, IPC, preload wiring, and human verification of audible metronome
 
 ### Phase 3: Command Dispatcher & State

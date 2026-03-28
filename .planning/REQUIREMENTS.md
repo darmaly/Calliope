@@ -9,12 +9,12 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Audio Engine
 
-- [ ] **ENG-01**: Audio engine processes multi-track audio in real-time at 44.1kHz/48kHz, 32-bit float internal
-- [ ] **ENG-02**: Audio engine supports configurable buffer sizes (128-2048 samples) with stable playback
+- [x] **ENG-01**: Audio engine processes multi-track audio in real-time at 44.1kHz/48kHz, 32-bit float internal
+- [x] **ENG-02**: Audio engine supports configurable buffer sizes (128-2048 samples) with stable playback
 - [ ] **ENG-03**: Audio routing supports per-track insert effect chains with serial processing
-- [ ] **ENG-04**: Audio routing supports master bus with insert chain for final output processing
+- [x] **ENG-04**: Audio routing supports master bus with insert chain for final output processing
 - [x] **ENG-05**: Transport controls: play, stop, pause, loop region, with BPM and time signature control
-- [ ] **ENG-06**: Metronome with toggleable click track and adjustable volume
+- [x] **ENG-06**: Metronome with toggleable click track and adjustable volume
 
 ### Instruments
 
@@ -144,11 +144,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ARCH-03 | Phase 1 | Complete |
 | UI-01 | Phase 1 | Complete |
-| ENG-01 | Phase 2 | Pending |
-| ENG-02 | Phase 2 | Pending |
-| ENG-04 | Phase 2 | Pending |
+| ENG-01 | Phase 2 | Complete |
+| ENG-02 | Phase 2 | Complete |
+| ENG-04 | Phase 2 | Complete |
 | ENG-05 | Phase 2 | Complete |
-| ENG-06 | Phase 2 | Pending |
+| ENG-06 | Phase 2 | Complete |
 | ARCH-04 | Phase 2 | Complete |
 | ARCH-01 | Phase 3 | Pending |
 | ARCH-02 | Phase 3 | Pending |
