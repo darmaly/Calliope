@@ -22,6 +22,7 @@ add_library(calliope_engine STATIC
     src/effects/delay.cpp
     src/effects/limiter.cpp
     src/insert_chain.cpp
+    src/insert_chain_processor.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)

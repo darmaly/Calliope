@@ -9,6 +9,7 @@
 #include "calliope/instruments/poly_synth.h"
 #include "calliope/instruments/bass_synth.h"
 #include "calliope/instruments/drum_machine.h"
+#include "calliope/insert_chain_processor.h"
 #include <memory>
 
 namespace calliope {
@@ -42,6 +43,10 @@ public:
     BassSynthProcessor& getBassSynth();
     DrumMachineProcessor& getDrumMachine();
 
+    // Insert chain access (Phase 5)
+    InsertChainProcessor& getInsertChainProcessor(const juce::String& trackId);
+    InsertChain& getInsertChain(const juce::String& trackId);
+
 private:
     juce::AudioDeviceManager deviceManager_;
     juce::AudioProcessorPlayer player_;
@@ -55,6 +60,12 @@ private:
     BassSynthProcessor* bassSynthPtr_ = nullptr;
     DrumMachineProcessor* drumMachinePtr_ = nullptr;
 
+    // Insert chain processors (raw pointers -- graph owns the unique_ptrs)
+    InsertChainProcessor* polySynthChainPtr_ = nullptr;
+    InsertChainProcessor* bassSynthChainPtr_ = nullptr;
+    InsertChainProcessor* drumMachineChainPtr_ = nullptr;
+    InsertChainProcessor* masterChainPtr_ = nullptr;
+
     // Graph node IDs
     juce::AudioProcessorGraph::Node::Ptr outputNode_;
     juce::AudioProcessorGraph::Node::Ptr masterNode_;
@@ -62,6 +73,10 @@ private:
     juce::AudioProcessorGraph::Node::Ptr polySynthNode_;
     juce::AudioProcessorGraph::Node::Ptr bassSynthNode_;
     juce::AudioProcessorGraph::Node::Ptr drumMachineNode_;
+    juce::AudioProcessorGraph::Node::Ptr polySynthChainNode_;
+    juce::AudioProcessorGraph::Node::Ptr bassSynthChainNode_;
+    juce::AudioProcessorGraph::Node::Ptr drumMachineChainNode_;
+    juce::AudioProcessorGraph::Node::Ptr masterChainNode_;
 
     AudioConfig currentConfig_;
     bool initialised_ = false;
