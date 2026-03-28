@@ -5,6 +5,7 @@
 #include "calliope/commands/transport_commands.h"
 #include "calliope/commands/parameter_commands.h"
 #include "calliope/commands/instrument_commands.h"
+#include "calliope/commands/effect_commands.h"
 #include "calliope/project_state.h"
 #include "calliope/parameter_registry.h"
 #include <thread>
@@ -575,6 +576,14 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
     int padIndex = 0;
     std::string filePath;
 
+    // Phase 5 — Effect command parameters
+    std::string trackId;
+    std::string effectType;
+    int effectPosition = -1;
+    int effectFromPosition = 0;
+    int effectToPosition = 0;
+    bool effectBypassed = false;
+
     if (cmdObj.Has("params") && cmdObj.Get("params").IsObject()) {
         auto params = cmdObj.Get("params").As<Napi::Object>();
         if (params.Has("bpm") && params.Get("bpm").IsNumber())
@@ -604,6 +613,19 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
             padIndex = params.Get("padIndex").As<Napi::Number>().Int32Value();
         if (params.Has("filePath") && params.Get("filePath").IsString())
             filePath = params.Get("filePath").As<Napi::String>().Utf8Value();
+        // Phase 5 — Effect params
+        if (params.Has("trackId") && params.Get("trackId").IsString())
+            trackId = params.Get("trackId").As<Napi::String>().Utf8Value();
+        if (params.Has("effectType") && params.Get("effectType").IsString())
+            effectType = params.Get("effectType").As<Napi::String>().Utf8Value();
+        if (params.Has("position") && params.Get("position").IsNumber())
+            effectPosition = params.Get("position").As<Napi::Number>().Int32Value();
+        if (params.Has("fromPosition") && params.Get("fromPosition").IsNumber())
+            effectFromPosition = params.Get("fromPosition").As<Napi::Number>().Int32Value();
+        if (params.Has("toPosition") && params.Get("toPosition").IsNumber())
+            effectToPosition = params.Get("toPosition").As<Napi::Number>().Int32Value();
+        if (params.Has("bypassed") && params.Get("bypassed").IsBoolean())
+            effectBypassed = params.Get("bypassed").As<Napi::Boolean>().Value();
         if (params.Has("value")) {
             auto val = params.Get("value");
             if (val.IsNumber()) {
@@ -628,7 +650,9 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
     std::thread([deferred, tsfn, command, bpm, numerator, denominator,
                  startBeat, endBeat, enabled, volume,
                  paramId, paramValueDouble, paramValueBool, paramValueType,
-                 instrument, midiNote, velocity, padIndex, filePath]() {
+                 instrument, midiNote, velocity, padIndex, filePath,
+                 trackId, effectType, effectPosition, effectFromPosition,
+                 effectToPosition, effectBypassed]() {
         auto& engine = calliope::Engine::getInstance();
         std::unique_ptr<calliope::Command> cmd;
 
@@ -683,6 +707,24 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
         } else if (command == "drumMachine.loadSample") {
             cmd = std::make_unique<calliope::LoadSampleCommand>(
                 engine.getAudioGraph().getDrumMachine(), padIndex, filePath);
+        // Phase 5 — Effect commands
+        } else if (command == "effect.insert") {
+            auto jtId = juce::String(trackId);
+            auto jtType = juce::String(effectType);
+            auto& chain = engine.getInsertChain(jtId);
+            cmd = std::make_unique<calliope::InsertEffectCommand>(chain, engine, jtId, jtType, effectPosition);
+        } else if (command == "effect.remove") {
+            auto jtId = juce::String(trackId);
+            auto& chain = engine.getInsertChain(jtId);
+            cmd = std::make_unique<calliope::RemoveEffectCommand>(chain, engine, jtId, effectPosition);
+        } else if (command == "effect.reorder") {
+            auto jtId = juce::String(trackId);
+            auto& chain = engine.getInsertChain(jtId);
+            cmd = std::make_unique<calliope::ReorderEffectCommand>(chain, engine, jtId, effectFromPosition, effectToPosition);
+        } else if (command == "effect.bypass") {
+            auto jtId = juce::String(trackId);
+            auto& chain = engine.getInsertChain(jtId);
+            cmd = std::make_unique<calliope::BypassEffectCommand>(chain, effectPosition, effectBypassed);
         }
 
         bool success = false;

@@ -59,6 +59,28 @@ contextBridge.exposeInMainWorld('calliope', {
       params: { padIndex, filePath }
     }),
 
+  // Phase 5 — Effect convenience API
+  effectInsert: (trackId: string, effectType: string, position?: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'effect.insert',
+      params: { trackId, effectType, position: position ?? -1 }
+    }),
+  effectRemove: (trackId: string, position: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'effect.remove',
+      params: { trackId, position }
+    }),
+  effectReorder: (trackId: string, fromPosition: number, toPosition: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'effect.reorder',
+      params: { trackId, fromPosition, toPosition }
+    }),
+  effectBypass: (trackId: string, position: number, bypassed: boolean) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'effect.bypass',
+      params: { trackId, position, bypassed }
+    }),
+
   onCommandEvent: (
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),

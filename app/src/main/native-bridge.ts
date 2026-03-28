@@ -56,6 +56,11 @@ interface NativeAddon {
   // { command: 'instrument.noteOn', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number, velocity: number } }
   // { command: 'instrument.noteOff', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number } }
   // { command: 'drumMachine.loadSample', params: { padIndex: number, filePath: string } }
+  // Phase 5 — Effect command types (dispatched via dispatchCommand):
+  // { command: 'effect.insert', params: { trackId: string, effectType: 'eq'|'compressor'|'reverb'|'delay'|'limiter', position?: number } }
+  // { command: 'effect.remove', params: { trackId: string, position: number } }
+  // { command: 'effect.reorder', params: { trackId: string, fromPosition: number, toPosition: number } }
+  // { command: 'effect.bypass', params: { trackId: string, position: number, bypassed: boolean } }
   dispatchCommand(cmd: { command: string; params: Record<string, unknown> }): Promise<boolean>
   commandUndo(): Promise<boolean>
   commandRedo(): Promise<boolean>
