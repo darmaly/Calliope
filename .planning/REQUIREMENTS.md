@@ -70,7 +70,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 - [ ] **ARCH-01**: Single command dispatcher — all operations (UI, future AI) flow through one interface
 - [ ] **ARCH-02**: DAW state serializable to JSON — full project state readable by external consumers
-- [ ] **ARCH-03**: Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer
+- [x] **ARCH-03**: Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer
 - [ ] **ARCH-04**: Lock-free FIFO communication between audio thread and UI/command thread
 - [ ] **ARCH-05**: Every instrument and effect parameter addressable by ID via command dispatcher
 - [ ] **ARCH-06**: Command dispatcher emits events for all state changes (enables future AI state tracking)
@@ -142,7 +142,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-03 | Phase 1 | Pending |
+| ARCH-03 | Phase 1 | Complete |
 | UI-01 | Phase 1 | Pending |
 | ENG-01 | Phase 2 | Pending |
 | ENG-02 | Phase 2 | Pending |

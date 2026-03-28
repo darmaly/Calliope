@@ -34,9 +34,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. C++ native addon (built with cmake-js) loads successfully in the Electron main process
   3. A round-trip call from JavaScript to C++ and back returns a valid result
   4. The build produces a working application on macOS with a single build command
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 01-01-PLAN.md -- Scaffold monorepo, CMake build system, JUCE submodule, and C++ native addon bridge
+- [x] 01-01-PLAN.md -- Scaffold monorepo, CMake build system, JUCE submodule, and C++ native addon bridge
 - [ ] 01-02-PLAN.md -- Wire Electron app shell with React UI, IPC bridge, and test tone proof-of-life
 
 ### Phase 2: Audio Engine Core
@@ -156,7 +156,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build System & App Shell | 0/2 | Planning complete | - |
+| 1. Build System & App Shell | 1/2 | In Progress|  |
 | 2. Audio Engine Core | 0/TBD | Not started | - |
 | 3. Command Dispatcher & State | 0/TBD | Not started | - |
 | 4. Instruments | 0/TBD | Not started | - |
