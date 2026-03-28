@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Command Dispatcher & State** - Single command interface for all DAW operations with undo/redo and serializable state (completed 2026-03-28)
 - [ ] **Phase 4: Instruments** - Built-in synthesizers and sampler that produce sound through the audio engine
 - [x] **Phase 5: Effects Processing** - Built-in effects chain with per-track insert routing (completed 2026-03-28)
-- [ ] **Phase 6: Timeline & Arrangement** - Multi-track timeline view with clip management and arrangement editing
+- [x] **Phase 6: Timeline & Arrangement** - Multi-track timeline view with clip management and arrangement editing (completed 2026-03-28)
 - [ ] **Phase 7: Piano Roll** - MIDI note editor with drawing, editing, velocity, and quantize
 - [ ] **Phase 8: Mixer** - Channel strip mixer with volume, pan, mute/solo, effect inserts, and level meters
 - [ ] **Phase 9: Project Management & Export** - Save/load, autosave, and export to WAV/MP3/FLAC/stems
@@ -112,12 +112,12 @@ Plans:
   3. Audio clips display waveforms and can be placed on tracks
   4. Tracks can be added, removed, reordered, renamed, and color-coded
   5. Snap-to-grid works with configurable resolution (1/4, 1/8, 1/16, 1/32 notes)
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 06-01-PLAN.md -- Foundation: dependencies, types, Zustand store, beat-math utilities, test scaffolds
 - [x] 06-02-PLAN.md -- Timeline layout shell, track headers, toolbar, PixiJS canvas with grid and viewport
 - [x] 06-03-PLAN.md -- Clip rendering (MIDI/Audio with waveforms), selection box, loop region, clip operations
-- [ ] 06-04-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, engine sync, human verify
+- [x] 06-04-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, engine sync, human verify
 **UI hint**: yes
 
 ### Phase 7: Piano Roll
@@ -182,7 +182,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 3. Command Dispatcher & State | 3/3 | Complete   | 2026-03-28 |
 | 4. Instruments | 0/3 | Planned | - |
 | 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
-| 6. Timeline & Arrangement | 0/4 | Planned | - |
+| 6. Timeline & Arrangement | 4/4 | Complete   | 2026-03-28 |
 | 7. Piano Roll | 0/TBD | Not started | - |
 | 8. Mixer | 0/TBD | Not started | - |
 | 9. Project Management & Export | 0/TBD | Not started | - |
