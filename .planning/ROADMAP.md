@@ -12,7 +12,7 @@ Calliope is built bottom-up: first the hybrid build system and native bridge, th
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Build System & App Shell** - Electron app loads a C++ native addon via cmake-js and node-addon-api
+- [x] **Phase 1: Build System & App Shell** - Electron app loads a C++ native addon via cmake-js and node-addon-api
 - [ ] **Phase 2: Audio Engine Core** - Real-time multi-track audio processing with transport controls and lock-free threading
 - [ ] **Phase 3: Command Dispatcher & State** - Single command interface for all DAW operations with undo/redo and serializable state
 - [ ] **Phase 4: Instruments** - Built-in synthesizers and sampler that produce sound through the audio engine
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. C++ native addon (built with cmake-js) loads successfully in the Electron main process
   3. A round-trip call from JavaScript to C++ and back returns a valid result
   4. The build produces a working application on macOS with a single build command
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold monorepo, CMake build system, JUCE submodule, and C++ native addon bridge
 - [x] 01-02-PLAN.md -- Wire Electron app shell with React UI, IPC bridge, and test tone proof-of-life
@@ -49,7 +49,11 @@ Plans:
   3. Buffer size is configurable (128-2048 samples) without audible glitches during playback
   4. Master bus processes audio through its insert chain for final output
   5. Metronome click plays in sync with transport at the set BPM
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md -- Catch2 test infra, Transport state machine, LockFreeQueue with unit tests
+- [ ] 02-02-PLAN.md -- AudioProcessorGraph, MasterBus, Metronome, Engine singleton with tests
+- [ ] 02-03-PLAN.md -- Native bridge, IPC, preload wiring, and human verification of audible metronome
 
 ### Phase 3: Command Dispatcher & State
 **Goal**: All DAW operations flow through a single command dispatcher with full undo/redo and JSON-serializable project state
@@ -156,8 +160,8 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build System & App Shell | 1/2 | In Progress|  |
-| 2. Audio Engine Core | 0/TBD | Not started | - |
+| 1. Build System & App Shell | 2/2 | Complete | 2026-03-28 |
+| 2. Audio Engine Core | 0/3 | Planning complete | - |
 | 3. Command Dispatcher & State | 0/TBD | Not started | - |
 | 4. Instruments | 0/TBD | Not started | - |
 | 5. Effects Processing | 0/TBD | Not started | - |
