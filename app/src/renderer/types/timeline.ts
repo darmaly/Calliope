@@ -1,4 +1,4 @@
-export type GridResolution = 0.25 | 0.125 | 0.0625 | 0.03125
+export type GridResolution = 0.25 | 0.125 | 0.0625 | 0.03125 | 0.16667 | 0.08333 | 0.04167
 
 export interface Track {
   id: string
@@ -18,6 +18,7 @@ export interface Clip {
   lengthBeats: number
   name: string
   peakData?: Float32Array // audio clips only
+  notes?: Record<string, import('./piano-roll').MidiNote> // MIDI clips only
 }
 
 export interface LoopRegion {
@@ -65,6 +66,8 @@ export interface TimelineActions {
   moveClip: (clipId: string, startBeat: number, trackId?: string) => void
   resizeClip: (clipId: string, startBeat: number, lengthBeats: number) => void
   duplicateClip: (clipId: string) => void
+  // Clip notes (piano roll integration)
+  updateClipNotes: (clipId: string, notes: Record<string, import('./piano-roll').MidiNote>) => void
   // Selection
   selectClip: (clipId: string, multi?: boolean) => void
   toggleClipSelection: (clipId: string) => void
