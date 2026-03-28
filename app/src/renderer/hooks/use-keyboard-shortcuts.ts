@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useTimelineStore } from '../stores/timeline-store'
+import { usePianoRollStore } from '../stores/piano-roll-store'
 import { deleteClip, duplicateClip } from '../utils/clip-operations'
 
 /**
@@ -17,6 +18,16 @@ export function useKeyboardShortcuts(): void {
 
       const mod = e.metaKey || e.ctrlKey
       const store = useTimelineStore.getState()
+
+      // Yield to piano roll shortcuts when a clip is open in the editor
+      const pianoRollActive = usePianoRollStore.getState().activeClipId !== null
+      if (pianoRollActive) {
+        // These keys are handled by use-piano-roll-shortcuts when active
+        if (e.key === 'Delete' || e.key === 'Backspace') return
+        if (mod && e.key === 'a') return
+        if (mod && e.key === 'd') return
+        if (e.key === 'Escape') return
+      }
 
       // Delete / Backspace — delete selected clips
       if (e.key === 'Delete' || e.key === 'Backspace') {

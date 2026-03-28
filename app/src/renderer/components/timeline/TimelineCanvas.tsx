@@ -10,6 +10,7 @@ import { SelectionBox } from './SelectionBox'
 import { LoopRegion } from './LoopRegion'
 import { pixelToBeat, snapToBeat, beatToPixel } from '../../utils/beat-math'
 import { createClip, deleteClip, moveClip, resizeClip, duplicateClip } from '../../utils/clip-operations'
+import { usePianoRollStore } from '../../stores/piano-roll-store'
 import { useContextMenu } from '../../hooks/use-context-menu'
 import { ContextMenu } from '../shared/ContextMenu'
 
@@ -193,6 +194,9 @@ export function TimelineCanvas({ containerRef }: TimelineCanvasProps) {
   })
   const [ghost, setGhost] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
+  // Double-click detection for opening MIDI clips in piano roll
+  const lastClickRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 })
+
   const selectClip = useTimelineStore((s) => s.selectClip)
   const toggleClipSelection = useTimelineStore((s) => s.toggleClipSelection)
   const selectClipsInRect = useTimelineStore((s) => s.selectClipsInRect)
@@ -349,6 +353,26 @@ export function TimelineCanvas({ containerRef }: TimelineCanvasProps) {
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top
       const state = useTimelineStore.getState()
+
+      // Double-click detection: open MIDI clip in piano roll
+      const now = Date.now()
+      const last = lastClickRef.current
+      const isDoubleClick =
+        now - last.time < 300 &&
+        Math.abs(px - last.x) < 4 &&
+        Math.abs(py - last.y) < 4
+      lastClickRef.current = { time: now, x: px, y: py }
+
+      if (isDoubleClick) {
+        const hit = findClipAt(px, py)
+        if (hit && hit.clip.type === 'midi') {
+          usePianoRollStore.getState().setActiveClip(hit.clip.id)
+          setDrag({ mode: 'none', startX: 0, startY: 0, currentX: 0, currentY: 0 })
+          setGhost(null)
+          ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+          return
+        }
+      }
 
       if (drag.mode === 'create') {
         const dx = Math.abs(px - drag.startX)
