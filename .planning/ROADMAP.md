@@ -13,7 +13,7 @@ Calliope is built bottom-up: first the hybrid build system and native bridge, th
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Build System & App Shell** - Electron app loads a C++ native addon via cmake-js and node-addon-api
-- [ ] **Phase 2: Audio Engine Core** - Real-time multi-track audio processing with transport controls and lock-free threading
+- [x] **Phase 2: Audio Engine Core** - Real-time multi-track audio processing with transport controls and lock-free threading (completed 2026-03-28)
 - [ ] **Phase 3: Command Dispatcher & State** - Single command interface for all DAW operations with undo/redo and serializable state
 - [ ] **Phase 4: Instruments** - Built-in synthesizers and sampler that produce sound through the audio engine
 - [ ] **Phase 5: Effects Processing** - Built-in effects chain with per-track insert routing
@@ -49,11 +49,11 @@ Plans:
   3. Buffer size is configurable (128-2048 samples) without audible glitches during playback
   4. Master bus processes audio through its insert chain for final output
   5. Metronome click plays in sync with transport at the set BPM
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 02-01-PLAN.md -- Catch2 test infra, Transport state machine, LockFreeQueue with unit tests
 - [x] 02-02-PLAN.md -- AudioProcessorGraph, MasterBus, Metronome, Engine singleton with tests
-- [ ] 02-03-PLAN.md -- Native bridge, IPC, preload wiring, and human verification of audible metronome
+- [x] 02-03-PLAN.md -- Native bridge, IPC, preload wiring, and human verification of audible metronome
 
 ### Phase 3: Command Dispatcher & State
 **Goal**: All DAW operations flow through a single command dispatcher with full undo/redo and JSON-serializable project state
@@ -161,7 +161,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Build System & App Shell | 2/2 | Complete | 2026-03-28 |
-| 2. Audio Engine Core | 0/3 | Planning complete | - |
+| 2. Audio Engine Core | 3/3 | Complete   | 2026-03-28 |
 | 3. Command Dispatcher & State | 0/TBD | Not started | - |
 | 4. Instruments | 0/TBD | Not started | - |
 | 5. Effects Processing | 0/TBD | Not started | - |
