@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useShallow } from 'zustand/shallow'
 import { TimelineToolbar } from './TimelineToolbar'
@@ -13,6 +13,7 @@ import { useKeyboardShortcuts } from '../../hooks/use-keyboard-shortcuts'
 
 export function TimelineView() {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
   // Start rAF sync with engine transport
   usePlayhead()
@@ -30,6 +31,23 @@ export function TimelineView() {
     }))
   )
 
+  // Shared vertical scroll handler for the sidebar
+  useEffect(() => {
+    const el = sidebarRef.current
+    if (!el) return
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const state = useTimelineStore.getState()
+      const sy = state.scrollY
+      const maxScrollY = Math.max(0, state.tracks.length * 80 - (canvasContainerRef.current?.clientHeight ?? 600))
+      useTimelineStore.getState().setScrollY(Math.max(0, Math.min(maxScrollY, sy + e.deltaY)))
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
+
   return (
     <div className="flex flex-col h-full w-full bg-[#1a1a2e]">
       {/* Toolbar */}
@@ -38,15 +56,14 @@ export function TimelineView() {
       {/* Content area: track headers + canvas */}
       <div className="flex flex-1 min-h-0 relative">
         {/* Track header column */}
-        <div className="w-[200px] shrink-0 flex flex-col border-r border-[#3a3a5a] bg-[#1a1a2e]">
-          {/* Ruler spacer for alignment */}
-          <div className="h-[48px] shrink-0 bg-[#252542] border-b border-[#3a3a5a]" />
+        <div ref={sidebarRef} className="w-[200px] shrink-0 flex flex-col min-h-0 border-r border-[#3a3a5a] bg-[#1a1a2e]">
+          {/* Ruler spacer with Add Track button */}
+          <div className="h-[48px] shrink-0 bg-[#252542] border-b border-[#3a3a5a] flex items-center">
+            <AddTrackButton />
+          </div>
 
-          {/* Track headers */}
+          {/* Track headers — scrollable area */}
           <TrackHeaderList />
-
-          {/* Add track button */}
-          <AddTrackButton />
         </div>
 
         {/* Right column: ruler + canvas */}

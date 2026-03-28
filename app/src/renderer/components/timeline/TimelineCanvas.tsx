@@ -49,9 +49,9 @@ interface TimelineCanvasProps {
 }
 
 /**
- * Inner component rendered inside <Application> so useApplication() works.
+ * Inner component rendered inside <Application> — only PixiJS rendering, no DOM interactions.
  */
-function ViewportContent({ containerRef }: TimelineCanvasProps) {
+function CanvasContent({ containerRef }: TimelineCanvasProps) {
   const app = useApplication()
   const viewportRef = useRef<Viewport | null>(null)
 
@@ -73,24 +73,8 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
   const setScrollX = useTimelineStore((s) => s.setScrollX)
   const setScrollY = useTimelineStore((s) => s.setScrollY)
   const setPixelsPerBeat = useTimelineStore((s) => s.setPixelsPerBeat)
-  const selectClip = useTimelineStore((s) => s.selectClip)
-  const toggleClipSelection = useTimelineStore((s) => s.toggleClipSelection)
-  const selectClipsInRect = useTimelineStore((s) => s.selectClipsInRect)
-  const clearSelection = useTimelineStore((s) => s.clearSelection)
-
-  const contextMenu = useContextMenu()
 
   const [size, setSize] = useState({ width: 800, height: 600 })
-  const [drag, setDrag] = useState<DragState>({
-    mode: 'none',
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
-  })
-
-  // Ghost clip for creation preview
-  const [ghost, setGhost] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
   // Observe container size
   useEffect(() => {
@@ -120,18 +104,38 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
 
-      const ppb = useTimelineStore.getState().pixelsPerBeat
-      const sx = useTimelineStore.getState().scrollX
-      const sy = useTimelineStore.getState().scrollY
+      const state = useTimelineStore.getState()
+      const ppb = state.pixelsPerBeat
+      const sx = state.scrollX
+      const sy = state.scrollY
 
       if (e.ctrlKey || e.metaKey) {
+        // Zoom
         const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1
         const next = Math.min(Math.max(ppb * factor, 6), 192)
         setPixelsPerBeat(next)
-      } else if (e.shiftKey) {
-        setScrollX(Math.max(0, sx + e.deltaY))
       } else {
-        setScrollY(Math.max(0, sy + e.deltaY))
+        // Scroll — deltaX for horizontal (trackpad swipe), deltaY for vertical
+        // Also: shift+scroll = horizontal scroll (for mouse wheel users)
+        const dx = e.shiftKey ? e.deltaY : e.deltaX
+        const dy = e.shiftKey ? 0 : e.deltaY
+
+        // Horizontal scroll: clamp to 0..maxScrollX
+        // maxScrollX = rightmost clip end (rounded up to nearest bar) * ppb
+        const clips = Object.values(state.clips)
+        let maxBeat = 32 // minimum 32 beats visible
+        for (const clip of clips) {
+          const clipEnd = clip.startBeat + clip.lengthBeats
+          if (clipEnd > maxBeat) maxBeat = clipEnd
+        }
+        const beatsPerBar = state.timeSignature.numerator
+        maxBeat = Math.ceil(maxBeat / beatsPerBar) * beatsPerBar + beatsPerBar * 2 // 2 bars padding
+        const maxScrollX = Math.max(0, maxBeat * ppb - (el?.clientWidth ?? 800))
+        setScrollX(Math.max(0, Math.min(maxScrollX, sx + dx)))
+
+        // Vertical scroll: clamp to 0..maxScrollY
+        const maxScrollY = Math.max(0, state.tracks.length * 80 - (el?.clientHeight ?? 600))
+        setScrollY(Math.max(0, Math.min(maxScrollY, sy + dy)))
       }
     }
 
@@ -139,7 +143,61 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
     return () => el.removeEventListener('wheel', handleWheel)
   }, [containerRef, setScrollX, setScrollY, setPixelsPerBeat])
 
-  // Helper: find clip at pixel position
+  // Imperatively sync scroll position to avoid React reconciler lag
+  const scrollContainerRef = useRef<import('pixi.js').Container | null>(null)
+  useEffect(() => {
+    const unsub = useTimelineStore.subscribe((state) => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.x = -state.scrollX
+        scrollContainerRef.current.y = -state.scrollY
+      }
+    })
+    return unsub
+  }, [])
+
+  return (
+    <>
+      <pixiContainer ref={(ref: import('pixi.js').Container | null) => { scrollContainerRef.current = ref }} x={-scrollX} y={-scrollY}>
+        <GridLayer viewportWidth={size.width} viewportHeight={size.height} scrollX={scrollX} />
+
+        {/* Clip containers per track */}
+        {tracks.map((track, index) => (
+          <ClipContainer key={track.id} track={track} trackIndex={index} />
+        ))}
+
+        {/* Loop region */}
+        <LoopRegion worldHeight={worldHeight} />
+
+        {/* Selection rubber-band box — disabled for now, handled by DOM overlay */}
+        <SelectionBox
+          startX={0}
+          startY={0}
+          endX={0}
+          endY={0}
+          visible={false}
+        />
+      </pixiContainer>
+
+    </>
+  )
+}
+
+export function TimelineCanvas({ containerRef }: TimelineCanvasProps) {
+  const contextMenu = useContextMenu()
+  const [drag, setDrag] = useState<DragState>({
+    mode: 'none',
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+  })
+  const [ghost, setGhost] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+
+  const selectClip = useTimelineStore((s) => s.selectClip)
+  const toggleClipSelection = useTimelineStore((s) => s.toggleClipSelection)
+  const selectClipsInRect = useTimelineStore((s) => s.selectClipsInRect)
+  const clearSelection = useTimelineStore((s) => s.clearSelection)
+
   const findClipAt = useCallback(
     (px: number, py: number) => {
       const state = useTimelineStore.getState()
@@ -152,7 +210,6 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
       for (const clip of Object.values(state.clips)) {
         if (clip.trackId !== track.id) continue
         if (beat >= clip.startBeat && beat <= clip.startBeat + clip.lengthBeats) {
-          // Check edge proximity for resize
           const leftEdgePx = beatToPixel(clip.startBeat, state.pixelsPerBeat, state.scrollX)
           const rightEdgePx = beatToPixel(clip.startBeat + clip.lengthBeats, state.pixelsPerBeat, state.scrollX)
 
@@ -168,22 +225,17 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
     [],
   )
 
-  // Handle pointer down on canvas overlay
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.button === 2) return // right-click handled by context menu
-
+      if (e.button === 2) return
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top
-
       const hit = findClipAt(px, py)
       const state = useTimelineStore.getState()
 
       if (hit) {
         const { clip, edge } = hit
-
-        // Handle selection
         if (e.shiftKey) {
           selectClip(clip.id, true)
         } else if (e.ctrlKey || e.metaKey) {
@@ -193,52 +245,22 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
         }
 
         if (edge === 'left') {
-          setDrag({
-            mode: 'resize-left',
-            startX: px,
-            startY: py,
-            currentX: px,
-            currentY: py,
-            clipId: hit.clip.id,
-          })
+          setDrag({ mode: 'resize-left', startX: px, startY: py, currentX: px, currentY: py, clipId: clip.id })
         } else if (edge === 'right') {
-          setDrag({
-            mode: 'resize-right',
-            startX: px,
-            startY: py,
-            currentX: px,
-            currentY: py,
-            clipId: hit.clip.id,
-          })
+          setDrag({ mode: 'resize-right', startX: px, startY: py, currentX: px, currentY: py, clipId: clip.id })
         } else {
-          // Move mode — store originals for all selected clips
           const originals: Record<string, { startBeat: number; trackId: string }> = {}
           const selected = state.selectedClipIds.has(clip.id) ? state.selectedClipIds : new Set([clip.id])
           for (const cid of selected) {
             const c = state.clips[cid]
             if (c) originals[cid] = { startBeat: c.startBeat, trackId: c.trackId }
           }
-          setDrag({
-            mode: 'move',
-            startX: px,
-            startY: py,
-            currentX: px,
-            currentY: py,
-            originals,
-          })
+          setDrag({ mode: 'move', startX: px, startY: py, currentX: px, currentY: py, originals })
         }
       } else {
-        // Empty area — start create or rubber-band select
         clearSelection()
-        setDrag({
-          mode: 'create',
-          startX: px,
-          startY: py,
-          currentX: px,
-          currentY: py,
-        })
+        setDrag({ mode: 'create', startX: px, startY: py, currentX: px, currentY: py })
       }
-
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     },
     [findClipAt, selectClip, toggleClipSelection, clearSelection],
@@ -250,7 +272,6 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top
 
-      // Update cursor based on hover position
       if (drag.mode === 'none') {
         const hit = findClipAt(px, py)
         if (hit?.edge === 'left' || hit?.edge === 'right') {
@@ -264,18 +285,15 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
       }
 
       setDrag((prev) => ({ ...prev, currentX: px, currentY: py }))
-
       const state = useTimelineStore.getState()
 
       if (drag.mode === 'create') {
-        // Show ghost clip
         const trackIndex = Math.floor((drag.startY + state.scrollY) / TRACK_HEIGHT)
         if (trackIndex >= 0 && trackIndex < state.tracks.length) {
           const startBeat = pixelToBeat(Math.min(drag.startX, px), state.pixelsPerBeat, state.scrollX)
           const endBeat = pixelToBeat(Math.max(drag.startX, px), state.pixelsPerBeat, state.scrollX)
           const snappedStart = state.snapEnabled ? snapToBeat(startBeat, state.gridResolution) : startBeat
           const snappedEnd = state.snapEnabled ? snapToBeat(endBeat, state.gridResolution) : endBeat
-
           setGhost({
             x: beatToPixel(snappedStart, state.pixelsPerBeat, state.scrollX),
             y: trackIndex * TRACK_HEIGHT - state.scrollY,
@@ -283,28 +301,20 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
             height: TRACK_HEIGHT - 8,
           })
         }
-
-        // If drag is wide enough, switch to create mode; else it becomes rubber-band
-        const dx = Math.abs(px - drag.startX)
-        if (dx < 4) {
-          setGhost(null)
-        }
+        if (Math.abs(px - drag.startX) < 4) setGhost(null)
       }
 
       if (drag.mode === 'move' && drag.originals) {
         const deltaPx = px - drag.startX
         const deltaBeat = deltaPx / state.pixelsPerBeat
-        const deltaTrackRows = Math.round(((py - drag.startY)) / TRACK_HEIGHT)
-
+        const deltaTrackRows = Math.round((py - drag.startY) / TRACK_HEIGHT)
         for (const [cid, orig] of Object.entries(drag.originals)) {
           let newBeat = orig.startBeat + deltaBeat
           if (state.snapEnabled) newBeat = snapToBeat(newBeat, state.gridResolution)
           newBeat = Math.max(0, newBeat)
-
           const origTrackIdx = state.tracks.findIndex((t) => t.id === orig.trackId)
-          let newTrackIdx = Math.max(0, Math.min(state.tracks.length - 1, origTrackIdx + deltaTrackRows))
+          const newTrackIdx = Math.max(0, Math.min(state.tracks.length - 1, origTrackIdx + deltaTrackRows))
           const newTrackId = state.tracks[newTrackIdx]?.id ?? orig.trackId
-
           moveClip(cid, newBeat, newTrackId)
         }
       }
@@ -314,9 +324,7 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
         if (clip) {
           let endBeat = pixelToBeat(px, state.pixelsPerBeat, state.scrollX)
           if (state.snapEnabled) endBeat = snapToBeat(endBeat, state.gridResolution)
-          const minLength = state.gridResolution
-          const newLength = Math.max(minLength, endBeat - clip.startBeat)
-          resizeClip(clip.id, clip.startBeat, newLength)
+          resizeClip(clip.id, clip.startBeat, Math.max(state.gridResolution, endBeat - clip.startBeat))
         }
       }
 
@@ -326,8 +334,7 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
           let newStart = pixelToBeat(px, state.pixelsPerBeat, state.scrollX)
           if (state.snapEnabled) newStart = snapToBeat(newStart, state.gridResolution)
           const origEnd = clip.startBeat + clip.lengthBeats
-          const minLength = state.gridResolution
-          newStart = Math.min(newStart, origEnd - minLength)
+          newStart = Math.min(newStart, origEnd - state.gridResolution)
           newStart = Math.max(0, newStart)
           resizeClip(clip.id, newStart, origEnd - newStart)
         }
@@ -346,30 +353,23 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
       if (drag.mode === 'create') {
         const dx = Math.abs(px - drag.startX)
         const trackIndex = Math.floor((drag.startY + state.scrollY) / TRACK_HEIGHT)
-
         if (dx >= 4 && trackIndex >= 0 && trackIndex < state.tracks.length) {
-          // Create clip
           const startBeat = pixelToBeat(Math.min(drag.startX, px), state.pixelsPerBeat, state.scrollX)
           const endBeat = pixelToBeat(Math.max(drag.startX, px), state.pixelsPerBeat, state.scrollX)
           const snappedStart = state.snapEnabled ? snapToBeat(startBeat, state.gridResolution) : startBeat
           const snappedEnd = state.snapEnabled ? snapToBeat(endBeat, state.gridResolution) : endBeat
           const length = snappedEnd - snappedStart
-
           if (length >= state.gridResolution) {
             const track = state.tracks[trackIndex]
             createClip(track.id, snappedStart, length, 'midi')
           }
         } else if (dx < 4) {
-          // It was a click+drag that didn't go far enough, or a rubber-band selection
-          // Check if it was a rubber-band
           const dy = Math.abs(py - drag.startY)
           if (dy >= 4 || dx >= 4) {
-            // Rubber-band select
             const minX = Math.min(drag.startX, px)
             const maxX = Math.max(drag.startX, px)
             const minY = Math.min(drag.startY, py)
             const maxY = Math.max(drag.startY, py)
-
             const intersecting: string[] = []
             for (const clip of Object.values(state.clips)) {
               const clipLeft = beatToPixel(clip.startBeat, state.pixelsPerBeat, state.scrollX)
@@ -377,14 +377,11 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
               const trackIdx = state.tracks.findIndex((t) => t.id === clip.trackId)
               const clipTop = trackIdx * TRACK_HEIGHT - state.scrollY
               const clipBottom = clipTop + TRACK_HEIGHT
-
               if (clipRight >= minX && clipLeft <= maxX && clipBottom >= minY && clipTop <= maxY) {
                 intersecting.push(clip.id)
               }
             }
-            if (intersecting.length > 0) {
-              selectClipsInRect(intersecting)
-            }
+            if (intersecting.length > 0) selectClipsInRect(intersecting)
           }
         }
       }
@@ -396,14 +393,12 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
     [drag, selectClipsInRect],
   )
 
-  // Handle right-click context menu on clip
   const handleContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault()
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top
-
       const hit = findClipAt(px, py)
       if (hit) {
         const { clip } = hit
@@ -416,15 +411,12 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
           {
             label: 'Split at Playhead',
             action: () => {
-              const state = useTimelineStore.getState()
-              const c = state.clips[clip.id]
+              const s = useTimelineStore.getState()
+              const c = s.clips[clip.id]
               if (!c) return
-              const playheadBeat = state.currentBeat
-              if (playheadBeat > c.startBeat && playheadBeat < c.startBeat + c.lengthBeats) {
-                // Resize original to end at playhead
-                resizeClip(c.id, c.startBeat, playheadBeat - c.startBeat)
-                // Create new clip starting at playhead
-                createClip(c.trackId, playheadBeat, c.startBeat + c.lengthBeats - playheadBeat, c.type)
+              if (s.currentBeat > c.startBeat && s.currentBeat < c.startBeat + c.lengthBeats) {
+                resizeClip(c.id, c.startBeat, s.currentBeat - c.startBeat)
+                createClip(c.trackId, s.currentBeat, c.startBeat + c.lengthBeats - s.currentBeat, c.type)
               }
             },
           },
@@ -434,60 +426,11 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
     [findClipAt, selectClip, contextMenu],
   )
 
-  // Handle Escape during move to cancel
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && drag.mode === 'move' && drag.originals) {
-        // Restore original positions
-        for (const [cid, orig] of Object.entries(drag.originals)) {
-          moveClip(cid, orig.startBeat, orig.trackId)
-        }
-        setDrag({ mode: 'none', startX: 0, startY: 0, currentX: 0, currentY: 0 })
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [drag])
-
-  // Selection box coordinates (rubber-band)
-  const showSelectionBox = drag.mode === 'create' && !ghost
-  const selBoxStartX = drag.startX
-  const selBoxStartY = drag.startY
-  const selBoxEndX = drag.currentX
-  const selBoxEndY = drag.currentY
-
   return (
-    <>
-      <viewport
-        ref={(ref: Viewport | null) => {
-          viewportRef.current = ref
-        }}
-        screenWidth={size.width}
-        screenHeight={size.height}
-        worldWidth={WORLD_WIDTH}
-        worldHeight={worldHeight}
-        events={app.renderer.events}
-        passiveWheel={false}
-      >
-        <GridLayer viewportWidth={size.width} viewportHeight={size.height} scrollX={scrollX} />
-
-        {/* Clip containers per track */}
-        {tracks.map((track, index) => (
-          <ClipContainer key={track.id} track={track} trackIndex={index} />
-        ))}
-
-        {/* Loop region */}
-        <LoopRegion worldHeight={worldHeight} />
-
-        {/* Selection rubber-band box */}
-        <SelectionBox
-          startX={selBoxStartX}
-          startY={selBoxStartY}
-          endX={selBoxEndX}
-          endY={selBoxEndY}
-          visible={showSelectionBox && (Math.abs(selBoxEndX - selBoxStartX) > 4 || Math.abs(selBoxEndY - selBoxStartY) > 4)}
-        />
-      </viewport>
+    <div className="relative w-full h-full">
+      <Application resizeTo={containerRef} background="#1a1a2e" antialias>
+        <CanvasContent containerRef={containerRef} />
+      </Application>
 
       {/* Transparent overlay for pointer events — sits on top of the PixiJS canvas */}
       <div
@@ -517,14 +460,6 @@ function ViewportContent({ containerRef }: TimelineCanvasProps) {
       {contextMenu.visible && (
         <ContextMenu items={contextMenu.items} position={contextMenu.position} onClose={contextMenu.close} />
       )}
-    </>
-  )
-}
-
-export function TimelineCanvas({ containerRef }: TimelineCanvasProps) {
-  return (
-    <Application resizeTo={containerRef} background="#1a1a2e" antialias>
-      <ViewportContent containerRef={containerRef} />
-    </Application>
+    </div>
   )
 }
