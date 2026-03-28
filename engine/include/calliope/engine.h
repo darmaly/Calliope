@@ -35,6 +35,11 @@ public:
     AudioGraph& getAudioGraph();
     Transport& getTransport();
 
+    // Instrument access (Phase 4 convenience)
+    PolySynthProcessor& getPolySynth();
+    BassSynthProcessor& getBassSynth();
+    DrumMachineProcessor& getDrumMachine();
+
     // Convenience wrappers (delegate to AudioGraph/Transport)
     void transportPlay();
     void transportStop();

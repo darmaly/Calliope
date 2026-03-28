@@ -6,6 +6,9 @@
 #include "calliope/master_bus.h"
 #include "calliope/metronome.h"
 #include "calliope/lock_free_queue.h"
+#include "calliope/instruments/poly_synth.h"
+#include "calliope/instruments/bass_synth.h"
+#include "calliope/instruments/drum_machine.h"
 #include <memory>
 
 namespace calliope {
@@ -34,6 +37,11 @@ public:
     MetronomeProcessor& getMetronome();
     AudioConfig getAudioConfig() const;
 
+    // Instrument access (Phase 4)
+    PolySynthProcessor& getPolySynth();
+    BassSynthProcessor& getBassSynth();
+    DrumMachineProcessor& getDrumMachine();
+
 private:
     juce::AudioDeviceManager deviceManager_;
     juce::AudioProcessorPlayer player_;
@@ -43,11 +51,17 @@ private:
     // Owned processors (raw pointers -- graph owns the unique_ptrs)
     MasterBusProcessor* masterBusPtr_ = nullptr;
     MetronomeProcessor* metronomePtr_ = nullptr;
+    PolySynthProcessor* polySynthPtr_ = nullptr;
+    BassSynthProcessor* bassSynthPtr_ = nullptr;
+    DrumMachineProcessor* drumMachinePtr_ = nullptr;
 
     // Graph node IDs
     juce::AudioProcessorGraph::Node::Ptr outputNode_;
     juce::AudioProcessorGraph::Node::Ptr masterNode_;
     juce::AudioProcessorGraph::Node::Ptr metronomeNode_;
+    juce::AudioProcessorGraph::Node::Ptr polySynthNode_;
+    juce::AudioProcessorGraph::Node::Ptr bassSynthNode_;
+    juce::AudioProcessorGraph::Node::Ptr drumMachineNode_;
 
     AudioConfig currentConfig_;
     bool initialised_ = false;
