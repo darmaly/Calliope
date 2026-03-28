@@ -17,9 +17,11 @@ A person with a musical vision but no DAW experience can go from an empty projec
 - [x] Hybrid audio engine (C++/JUCE) with real-time multi-track audio processing, transport controls, and lock-free threading — Validated in Phase 2: Audio Engine Core
 - [x] Single command dispatcher for all DAW operations with undo/redo and JSON-serializable state — Validated in Phase 3: Command Dispatcher & State
 
+- [x] Built-in synthesizers (polysynth, bass synth) and sample-based drum machine — Validated in Phase 4: Instruments
+
 ### Active
 
-- [ ] Hybrid audio engine (C++/JUCE) with synthesis, effects processing, and MIDI (instruments/effects pending Phases 4-5)
+- [ ] Audio effects processing (EQ, compressor, reverb, delay, limiter) — Phase 5
 - [ ] AI agent integration layer (BYOK — user provides their own API key for Claude, GPT, etc.)
 - [ ] AI has full DAW access — sound design, composition, arrangement, mixing, mastering
 - [ ] Natural language interface for all DAW operations (chat-based interaction)
@@ -91,4 +93,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 after Phase 3 completion*
+*Last updated: 2026-03-28 after Phase 4 completion*
