@@ -1,8 +1,8 @@
-# Roadmap: LuneyTunes
+# Roadmap: Calliope
 
 ## Overview
 
-LuneyTunes is built bottom-up: first the hybrid build system and native bridge, then the C++ audio engine with real-time DSP, then the command dispatcher that unifies all operations, then instruments and effects that produce sound, then the UI layers (timeline, piano roll, mixer) that let users see and interact with the DAW, then project management and export, and finally full application integration that ties every panel into a cohesive workspace. Each phase delivers a verifiable capability that the next phase depends on.
+Calliope is built bottom-up: first the hybrid build system and native bridge, then the C++ audio engine with real-time DSP, then the command dispatcher that unifies all operations, then instruments and effects that produce sound, then the UI layers (timeline, piano roll, mixer) that let users see and interact with the DAW, then project management and export, and finally full application integration that ties every panel into a cohesive workspace. Each phase delivers a verifiable capability that the next phase depends on.
 
 ## Phases
 
@@ -34,7 +34,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. C++ native addon (built with cmake-js) loads successfully in the Electron main process
   3. A round-trip call from JavaScript to C++ and back returns a valid result
   4. The build produces a working application on macOS with a single build command
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 01-01-PLAN.md -- Scaffold monorepo, CMake build system, JUCE submodule, and C++ native addon bridge
+- [ ] 01-02-PLAN.md -- Wire Electron app shell with React UI, IPC bridge, and test tone proof-of-life
 
 ### Phase 2: Audio Engine Core
 **Goal**: The C++ audio engine processes multi-track audio in real-time with stable playback, transport controls, and lock-free thread communication
@@ -153,7 +156,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build System & App Shell | 0/TBD | Not started | - |
+| 1. Build System & App Shell | 0/2 | Planning complete | - |
 | 2. Audio Engine Core | 0/TBD | Not started | - |
 | 3. Command Dispatcher & State | 0/TBD | Not started | - |
 | 4. Instruments | 0/TBD | Not started | - |
