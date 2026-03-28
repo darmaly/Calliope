@@ -5,10 +5,14 @@ import { useShallow } from 'zustand/shallow'
 import { TRACK_COLORS } from '../../utils/colors'
 import { PianoRollToolbar } from './PianoRollToolbar'
 import { PianoRollCanvas } from './PianoRollCanvas'
+import { usePianoRollShortcuts } from '../../hooks/use-piano-roll-shortcuts'
 
 export function PianoRollPanel() {
   const activeClipId = usePianoRollStore((s) => s.activeClipId)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
+
+  // Activate piano roll keyboard shortcuts when panel is mounted
+  usePianoRollShortcuts()
 
   const { clips, tracks } = useTimelineStore(
     useShallow((s) => ({
