@@ -16,6 +16,12 @@ add_library(calliope_engine STATIC
     src/instruments/poly_synth_voice.cpp
     src/instruments/bass_synth.cpp
     src/instruments/bass_synth_voice.cpp
+    src/effects/parametric_eq.cpp
+    src/effects/compressor.cpp
+    src/effects/reverb.cpp
+    src/effects/delay.cpp
+    src/effects/limiter.cpp
+    src/insert_chain.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)
