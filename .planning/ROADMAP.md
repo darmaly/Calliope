@@ -84,7 +84,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md -- PolySynth and BassSynth C++ processors with bandlimited oscillators, filters, envelopes, LFO
 - [x] 04-02-PLAN.md -- DrumMachine/Sampler C++ processor with sample loading and MIDI pad mapping
-- [ ] 04-03-PLAN.md -- Wire instruments into AudioGraph, register parameters, bridge commands, IPC
+- [x] 04-03-PLAN.md -- Wire instruments into AudioGraph, register parameters, bridge commands, IPC
 
 ### Phase 5: Effects Processing
 **Goal**: Built-in audio effects can be applied to tracks via insert chains with per-track routing
