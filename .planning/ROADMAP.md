@@ -130,7 +130,11 @@ Plans:
   3. Per-note velocity is editable via velocity lane or note color
   4. Quantize function snaps selected notes to the current grid resolution
   5. Piano roll supports scroll, zoom, and shows keyboard reference on the left edge
-**Plans:** TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Types, store, helpers, note operations, GridResolution triplet extension with full test coverage
+- [ ] 07-02-PLAN.md -- Split panel layout, PixiJS canvas with keyboard, grid, notes, velocity lane, playhead
+- [ ] 07-03-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, timeline clip opening, human verify
 **UI hint**: yes
 
 ### Phase 8: Mixer
@@ -183,7 +187,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 4. Instruments | 0/3 | Planned | - |
 | 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
 | 6. Timeline & Arrangement | 4/4 | Complete   | 2026-03-28 |
-| 7. Piano Roll | 0/TBD | Not started | - |
+| 7. Piano Roll | 0/3 | Planned | - |
 | 8. Mixer | 0/TBD | Not started | - |
 | 9. Project Management & Export | 0/TBD | Not started | - |
 | 10. Application Integration | 0/TBD | Not started | - |
