@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-28T09:06:46.730Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-28T09:11:05.249Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 04 (instruments) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-03-28
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P02 | 192 | 2 tasks | 10 files |
 | Phase 03 P03 | 68 | 2 tasks | 6 files |
 | Phase 04 P02 | 165 | 1 tasks | 5 files |
+| Phase 04 P01 | 399 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 04]: 16 SamplerVoice instances for simultaneous pad playback (one per pad)
 - [Phase 04]: JUCE SamplerSound/SamplerVoice over hand-rolled sample interpolation
 - [Phase 04]: GM drum standard mapping starting at MIDI note 36 (C1)
+- [Phase 04]: PolyBLEP over wavetable for oscillator anti-aliasing (simpler, sufficient for 16 voices)
+- [Phase 04]: LadderFilter process() via AudioBlock wrapper since processSample is protected in JUCE 8
+- [Phase 04]: Sine sub-oscillator for BassSynth (clean low-end, CPU efficient)
 
 ### Pending Todos
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T09:06:46.726Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-03-28T09:11:05.244Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

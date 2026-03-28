@@ -18,8 +18,8 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Instruments
 
-- [ ] **INST-01**: Subtractive/wavetable polysynth with oscillators, filter, envelopes, and LFO
-- [ ] **INST-02**: Bass synthesizer optimized for low-frequency sounds with sub-oscillator
+- [x] **INST-01**: Subtractive/wavetable polysynth with oscillators, filter, envelopes, and LFO
+- [x] **INST-02**: Bass synthesizer optimized for low-frequency sounds with sub-oscillator
 - [x] **INST-03**: Sample-based drum machine / sampler that loads WAV/MP3 samples and maps to pads/keys
 - [ ] **INST-04**: Each instrument exposes all parameters via the command dispatcher interface
 
@@ -155,8 +155,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-05 | Phase 3 | Complete |
 | ARCH-06 | Phase 3 | Complete |
 | PROJ-03 | Phase 3 | Complete |
-| INST-01 | Phase 4 | Pending |
-| INST-02 | Phase 4 | Pending |
+| INST-01 | Phase 4 | Complete |
+| INST-02 | Phase 4 | Complete |
 | INST-03 | Phase 4 | Complete |
 | INST-04 | Phase 4 | Pending |
 | FX-01 | Phase 5 | Pending |
