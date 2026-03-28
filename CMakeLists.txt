@@ -7,4 +7,5 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(vendor/JUCE)
 add_subdirectory(engine)
+add_subdirectory(engine/tests)
 add_subdirectory(native)
