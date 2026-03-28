@@ -3,11 +3,17 @@ import { useTimelineStore } from '../../stores/timeline-store'
 import { useShallow } from 'zustand/shallow'
 import { TimelineToolbar } from './TimelineToolbar'
 import { TimelineRuler } from './TimelineRuler'
+import { TimelineCanvas } from './TimelineCanvas'
+import { Playhead } from './Playhead'
 import { TrackHeaderList } from '../tracks/TrackHeaderList'
 import { AddTrackButton } from '../tracks/AddTrackButton'
+import { usePlayhead } from '../../hooks/use-playhead'
 
 export function TimelineView() {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
+
+  // Start rAF sync with engine transport
+  usePlayhead()
 
   const { scrollY, tracks } = useTimelineStore(
     useShallow((s) => ({
@@ -40,14 +46,17 @@ export function TimelineView() {
           {/* Ruler */}
           <TimelineRuler />
 
-          {/* Canvas container - placeholder for TimelineCanvas (Task 2) */}
+          {/* Canvas container */}
           <div
             ref={canvasContainerRef}
             className="flex-1 min-h-0 relative bg-[#1a1a2e]"
           >
-            {/* TimelineCanvas and Playhead will be wired in Task 2 */}
+            <TimelineCanvas containerRef={canvasContainerRef} />
           </div>
         </div>
+
+        {/* Playhead overlay — absolute positioned over entire content area */}
+        <Playhead />
       </div>
     </div>
   )
