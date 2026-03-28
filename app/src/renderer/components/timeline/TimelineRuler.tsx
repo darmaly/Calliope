@@ -1,18 +1,27 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useShallow } from 'zustand/shallow'
+import { pixelToBeat, snapToBeat, beatToPixel } from '../../utils/beat-math'
 
 export function TimelineRuler() {
-  const { pixelsPerBeat, scrollX, timeSignature } = useTimelineStore(
+  const { pixelsPerBeat, scrollX, timeSignature, loopRegion } = useTimelineStore(
     useShallow((s) => ({
       pixelsPerBeat: s.pixelsPerBeat,
       scrollX: s.scrollX,
       timeSignature: s.timeSignature,
-    }))
+      loopRegion: s.loopRegion,
+    })),
   )
+
+  const setLoopRegion = useTimelineStore((s) => s.setLoopRegion)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Drag state for loop region creation
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState(0)
+  const [dragEnd, setDragEnd] = useState(0)
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -43,6 +52,17 @@ export function TimelineRuler() {
     const endBeat = startBeat + width / pixelsPerBeat
     const startBar = Math.floor(startBeat / beatsPerBar)
     const endBar = Math.ceil(endBeat / beatsPerBar) + 1
+
+    // Draw loop region on ruler
+    const lr = isDragging
+      ? { startBeat: Math.min(dragStart, dragEnd), endBeat: Math.max(dragStart, dragEnd) }
+      : loopRegion
+    if (lr) {
+      const loopStartX = beatToPixel(lr.startBeat, pixelsPerBeat, scrollX)
+      const loopEndX = beatToPixel(lr.endBeat, pixelsPerBeat, scrollX)
+      ctx.fillStyle = 'rgba(108, 99, 255, 0.25)'
+      ctx.fillRect(loopStartX, 0, loopEndX - loopStartX, height)
+    }
 
     // Draw bar/beat markers
     for (let bar = startBar; bar <= endBar; bar++) {
@@ -79,7 +99,7 @@ export function TimelineRuler() {
         }
       }
     }
-  }, [pixelsPerBeat, scrollX, timeSignature])
+  }, [pixelsPerBeat, scrollX, timeSignature, loopRegion, isDragging, dragStart, dragEnd])
 
   useEffect(() => {
     draw()
@@ -94,12 +114,83 @@ export function TimelineRuler() {
     return () => observer.disconnect()
   }, [draw])
 
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const state = useTimelineStore.getState()
+      const beat = pixelToBeat(px, state.pixelsPerBeat, state.scrollX)
+      const snapped = state.snapEnabled ? snapToBeat(beat, state.gridResolution) : beat
+
+      if (e.shiftKey) {
+        // Shift+click+drag: create loop region
+        setIsDragging(true)
+        setDragStart(snapped)
+        setDragEnd(snapped)
+        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      }
+      // Plain click on ruler could move playhead (future feature — no-op for now)
+    },
+    [],
+  )
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const state = useTimelineStore.getState()
+      const beat = pixelToBeat(px, state.pixelsPerBeat, state.scrollX)
+      const snapped = state.snapEnabled ? snapToBeat(beat, state.gridResolution) : beat
+      setDragEnd(snapped)
+    },
+    [isDragging],
+  )
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return
+      setIsDragging(false)
+
+      const startBeat = Math.min(dragStart, dragEnd)
+      const endBeat = Math.max(dragStart, dragEnd)
+
+      if (endBeat - startBeat > 0.01) {
+        setLoopRegion({ startBeat, endBeat })
+        try {
+          window.calliope?.setLoopRegion(startBeat, endBeat, true)
+        } catch {
+          // Engine not available
+        }
+      }
+
+      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+    },
+    [isDragging, dragStart, dragEnd, setLoopRegion],
+  )
+
+  const handleDoubleClick = useCallback(() => {
+    // Double-click on ruler with existing loop region: remove it
+    if (loopRegion) {
+      setLoopRegion(null)
+      try {
+        window.calliope?.setLoopRegion(0, 0, false)
+      } catch {
+        // Engine not available
+      }
+    }
+  }, [loopRegion, setLoopRegion])
+
   return (
     <div
       ref={containerRef}
       className="h-[48px] bg-[#252542] border-b border-[#3a3a5a] relative shrink-0"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
     >
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
     </div>
   )
 }
