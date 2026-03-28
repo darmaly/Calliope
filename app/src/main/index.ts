@@ -27,6 +27,8 @@ function createWindow() {
 }
 
 // IPC handlers -- bridge React UI to native addon
+
+// Phase 1
 ipcMain.handle('engine:getInfo', async () => {
   return await native.getEngineInfo()
 })
@@ -37,6 +39,63 @@ ipcMain.handle('engine:startTestTone', async (_event, frequency: number) => {
 
 ipcMain.handle('engine:stopTestTone', async () => {
   return await native.stopTestTone()
+})
+
+// Phase 2 — Engine lifecycle
+ipcMain.handle('engine:initialise', async (_event, sampleRate: number, bufferSize: number) => {
+  return await native.initialiseEngine(sampleRate, bufferSize)
+})
+
+ipcMain.handle('engine:shutdown', async () => {
+  return await native.shutdownEngine()
+})
+
+// Phase 2 — Transport
+ipcMain.handle('engine:transport:play', async () => {
+  return await native.transportPlay()
+})
+
+ipcMain.handle('engine:transport:stop', async () => {
+  return await native.transportStop()
+})
+
+ipcMain.handle('engine:transport:pause', async () => {
+  return await native.transportPause()
+})
+
+ipcMain.handle('engine:transport:setBpm', async (_event, bpm: number) => {
+  return await native.setBpm(bpm)
+})
+
+ipcMain.handle('engine:transport:setTimeSignature', async (_event, num: number, den: number) => {
+  return await native.setTimeSignature(num, den)
+})
+
+ipcMain.handle('engine:transport:setLoop', async (_event, startBeat: number, endBeat: number, enabled: boolean) => {
+  return await native.setLoopRegion(startBeat, endBeat, enabled)
+})
+
+// Phase 2 — Config
+ipcMain.handle('engine:config:setBufferSize', async (_event, bufferSize: number) => {
+  return await native.setBufferSize(bufferSize)
+})
+
+// Phase 2 — Metronome
+ipcMain.handle('engine:metronome:setEnabled', async (_event, enabled: boolean) => {
+  return await native.setMetronomeEnabled(enabled)
+})
+
+ipcMain.handle('engine:metronome:setVolume', async (_event, volume: number) => {
+  return await native.setMetronomeVolume(volume)
+})
+
+// Phase 2 — State queries
+ipcMain.handle('engine:transport:getState', async () => {
+  return await native.getTransportState()
+})
+
+ipcMain.handle('engine:config:getAudioConfig', async () => {
+  return await native.getAudioConfig()
 })
 
 app.whenReady().then(createWindow)

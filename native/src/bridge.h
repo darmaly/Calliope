@@ -1,6 +1,30 @@
 #pragma once
 #include <napi.h>
 
+// Phase 1
 Napi::Value GetEngineInfo(const Napi::CallbackInfo& info);
 Napi::Value StartTestTone(const Napi::CallbackInfo& info);
 Napi::Value StopTestTone(const Napi::CallbackInfo& info);
+
+// Phase 2 — Engine lifecycle
+Napi::Value InitialiseEngine(const Napi::CallbackInfo& info);
+Napi::Value ShutdownEngine(const Napi::CallbackInfo& info);
+
+// Phase 2 — Transport
+Napi::Value TransportPlay(const Napi::CallbackInfo& info);
+Napi::Value TransportStop(const Napi::CallbackInfo& info);
+Napi::Value TransportPause(const Napi::CallbackInfo& info);
+Napi::Value SetBpm(const Napi::CallbackInfo& info);
+Napi::Value SetTimeSignature(const Napi::CallbackInfo& info);
+Napi::Value SetLoopRegion(const Napi::CallbackInfo& info);
+
+// Phase 2 — Config
+Napi::Value SetBufferSize(const Napi::CallbackInfo& info);
+
+// Phase 2 — Metronome
+Napi::Value SetMetronomeEnabled(const Napi::CallbackInfo& info);
+Napi::Value SetMetronomeVolume(const Napi::CallbackInfo& info);
+
+// Phase 2 — State queries
+Napi::Value GetTransportState(const Napi::CallbackInfo& info);
+Napi::Value GetAudioConfig(const Napi::CallbackInfo& info);

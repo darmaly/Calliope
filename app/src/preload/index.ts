@@ -1,7 +1,37 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('calliope', {
+  // Phase 1
   getEngineInfo: () => ipcRenderer.invoke('engine:getInfo'),
   startTestTone: (frequency: number) => ipcRenderer.invoke('engine:startTestTone', frequency),
   stopTestTone: () => ipcRenderer.invoke('engine:stopTestTone'),
+
+  // Phase 2 — Engine lifecycle
+  initialiseEngine: (sampleRate: number, bufferSize: number) =>
+    ipcRenderer.invoke('engine:initialise', sampleRate, bufferSize),
+  shutdownEngine: () => ipcRenderer.invoke('engine:shutdown'),
+
+  // Phase 2 — Transport
+  transportPlay: () => ipcRenderer.invoke('engine:transport:play'),
+  transportStop: () => ipcRenderer.invoke('engine:transport:stop'),
+  transportPause: () => ipcRenderer.invoke('engine:transport:pause'),
+  setBpm: (bpm: number) => ipcRenderer.invoke('engine:transport:setBpm', bpm),
+  setTimeSignature: (num: number, den: number) =>
+    ipcRenderer.invoke('engine:transport:setTimeSignature', num, den),
+  setLoopRegion: (startBeat: number, endBeat: number, enabled: boolean) =>
+    ipcRenderer.invoke('engine:transport:setLoop', startBeat, endBeat, enabled),
+
+  // Phase 2 — Config
+  setBufferSize: (bufferSize: number) =>
+    ipcRenderer.invoke('engine:config:setBufferSize', bufferSize),
+
+  // Phase 2 — Metronome
+  setMetronomeEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('engine:metronome:setEnabled', enabled),
+  setMetronomeVolume: (volume: number) =>
+    ipcRenderer.invoke('engine:metronome:setVolume', volume),
+
+  // Phase 2 — State queries
+  getTransportState: () => ipcRenderer.invoke('engine:transport:getState'),
+  getAudioConfig: () => ipcRenderer.invoke('engine:config:getAudioConfig'),
 })
