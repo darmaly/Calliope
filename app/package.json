@@ -1,5 +1,9 @@
 {
   "name": "calliope-app",
   "version": "0.1.0",
-  "main": "./out/main/index.js"
+  "main": "./out/main/index.js",
+  "dependencies": {
+    "lucide-react": "^1.7.0",
+    "pixi-viewport": "^6.0.3"
+  }
 }
