@@ -65,7 +65,11 @@ Plans:
   3. Every instrument and effect parameter is addressable by ID via the dispatcher
   4. Command dispatcher emits events for all state changes
   5. Undo/redo works across all operations with a minimum 100-operation history stack
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 
 ### Phase 4: Instruments
 **Goal**: Users can load built-in synthesizers and a sampler that produce sound through the audio engine
@@ -76,7 +80,11 @@ Plans:
   2. Bass synth produces low-frequency sounds with sub-oscillator
   3. Drum machine / sampler loads WAV/MP3 samples and maps them to pads/keys
   4. All instrument parameters are controllable via the command dispatcher
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 
 ### Phase 5: Effects Processing
 **Goal**: Built-in audio effects can be applied to tracks via insert chains with per-track routing
@@ -88,7 +96,11 @@ Plans:
   3. Per-track insert chains process audio in serial before reaching the master bus
   4. Limiter on the master bus controls final output loudness
   5. All effect parameters are controllable via the command dispatcher
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 
 ### Phase 6: Timeline & Arrangement
 **Goal**: Users can arrange music on a multi-track horizontal timeline with clips, tracks, and grid snapping
@@ -100,7 +112,11 @@ Plans:
   3. Audio clips display waveforms and can be placed on tracks
   4. Tracks can be added, removed, reordered, renamed, and color-coded
   5. Snap-to-grid works with configurable resolution (1/4, 1/8, 1/16, 1/32 notes)
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 **UI hint**: yes
 
 ### Phase 7: Piano Roll
@@ -113,7 +129,11 @@ Plans:
   3. Per-note velocity is editable via velocity lane or note color
   4. Quantize function snaps selected notes to the current grid resolution
   5. Piano roll supports scroll, zoom, and shows keyboard reference on the left edge
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 **UI hint**: yes
 
 ### Phase 8: Mixer
@@ -125,7 +145,11 @@ Plans:
   2. Master channel strip has volume fader and insert effect chain
   3. Per-track insert chain supports add, remove, reorder, and bypass per effect
   4. Real-time level meters display signal level on each channel strip
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 **UI hint**: yes
 
 ### Phase 9: Project Management & Export
@@ -137,7 +161,11 @@ Plans:
   2. Autosave triggers at a configurable interval (default every 2 minutes)
   3. Final mix exports to WAV (16/24-bit), MP3 (configurable bitrate), and FLAC
   4. Individual track stems export as separate WAV files
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 
 ### Phase 10: Application Integration
 **Goal**: All panels unite into a cohesive DAW workspace with professional navigation, rendering, and shortcuts
@@ -148,7 +176,11 @@ Plans:
   2. Audio clip waveforms render via PixiJS/WebGL with smooth performance
   3. Transport bar shows BPM, time signature, and play/stop controls with real-time playhead position
   4. Keyboard shortcuts work for transport, undo/redo, save, and common operations
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- C++ command infrastructure: CommandDispatcher, Command base, ParameterRegistry, ProjectState with tests
+- [ ] 03-02-PLAN.md -- Concrete transport/parameter commands, wire Engine to own dispatcher and registry
+- [ ] 03-03-PLAN.md -- Native bridge, IPC handlers, preload API for command dispatch and events
 **UI hint**: yes
 
 ## Progress
@@ -162,7 +194,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 |-------|----------------|--------|-----------|
 | 1. Build System & App Shell | 2/2 | Complete | 2026-03-28 |
 | 2. Audio Engine Core | 3/3 | Complete   | 2026-03-28 |
-| 3. Command Dispatcher & State | 0/TBD | Not started | - |
+| 3. Command Dispatcher & State | 0/3 | Planning complete | - |
 | 4. Instruments | 0/TBD | Not started | - |
 | 5. Effects Processing | 0/TBD | Not started | - |
 | 6. Timeline & Arrangement | 0/TBD | Not started | - |
