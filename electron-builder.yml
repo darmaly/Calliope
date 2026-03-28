@@ -1,0 +1,17 @@
+appId: com.calliope.daw
+productName: Calliope
+directories:
+  buildResources: build
+  output: dist
+files:
+  - "app/out/**/*"
+  - "build/Release/**/*.node"
+asarUnpack:
+  - "**/*.node"
+mac:
+  category: public.app-category.music
+  target: dmg
+win:
+  target: nsis
+linux:
+  target: AppImage
