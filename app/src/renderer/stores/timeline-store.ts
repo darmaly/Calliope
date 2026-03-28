@@ -137,6 +137,14 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
       return { clips: { ...state.clips, [newId]: newClip } }
     }),
 
+  // Clip notes (piano roll integration)
+  updateClipNotes: (clipId, notes) =>
+    set((state) => {
+      const clip = state.clips[clipId]
+      if (!clip) return state
+      return { clips: { ...state.clips, [clipId]: { ...clip, notes } } }
+    }),
+
   // Selection actions
   selectClip: (clipId: string, multi?: boolean) =>
     set((state) => {

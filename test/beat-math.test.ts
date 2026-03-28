@@ -40,6 +40,24 @@ describe('snapToBeat', () => {
   })
 })
 
+describe('triplet snap', () => {
+  it('snaps to 1/4 triplet (0.16667)', () => {
+    expect(snapToBeat(0.15, 0.16667)).toBeCloseTo(0.16667, 4)
+  })
+
+  it('snaps to double 1/4 triplet', () => {
+    expect(snapToBeat(0.3, 0.16667)).toBeCloseTo(0.33334, 4)
+  })
+
+  it('snaps to 1/8 triplet (0.08333)', () => {
+    expect(snapToBeat(0.1, 0.08333)).toBeCloseTo(0.08333, 4)
+  })
+
+  it('snaps to 1/16 triplet (0.04167)', () => {
+    expect(snapToBeat(0.05, 0.04167)).toBeCloseTo(0.04167, 4)
+  })
+})
+
 describe('TRACK_COLORS', () => {
   it('has exactly 8 entries', () => {
     expect(TRACK_COLORS).toHaveLength(8)
