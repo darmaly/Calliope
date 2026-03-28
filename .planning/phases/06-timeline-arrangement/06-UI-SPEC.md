@@ -46,7 +46,7 @@ Exceptions:
 - Track row height: 80px default (divisible by 4, fits waveform display and clip labels)
 - Timeline ruler height: 48px (houses beat numbers, bar markers, loop region handle)
 - Minimum clip width: 8px (1/32 note at default zoom, prevents invisible clips)
-- Touch/click target minimum: 44px height for toolbar buttons (accessibility)
+- Touch/click target minimum: 48px height for toolbar buttons (accessibility, matches 2xl token)
 
 ---
 
@@ -55,7 +55,7 @@ Exceptions:
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 13px | 400 (regular) | 1.4 | Track names, clip labels, context menu items |
-| Label | 11px | 500 (medium) | 1.2 | Timeline ruler numbers, grid markers, status text |
+| Label | 11px | 400 (regular) | 1.2 | Timeline ruler numbers, grid markers, status text |
 | Heading | 16px | 600 (semibold) | 1.2 | Toolbar section labels, panel titles |
 | Mono | 11px | 400 (regular) | 1.0 | BPM display, beat/bar counters, time position |
 
@@ -262,6 +262,9 @@ These render inside a single PixiJS `<Stage>` component via `@pixi/react`:
 | Snap toggle label | "Snap" |
 | Default track name pattern | "Track {N}" (auto-incremented) |
 | Zoom controls tooltip | "Zoom In" / "Zoom Out" |
+| TrackHeader: Mute button aria-label | "Mute" (active state: "Unmute") |
+| TrackHeader: Solo button aria-label | "Solo" (active state: "Unsolo") |
+| TrackHeader: Arm button aria-label | "Arm for recording" (active state: "Disarm") |
 
 ---
 
