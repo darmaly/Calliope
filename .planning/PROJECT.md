@@ -15,6 +15,7 @@ A person with a musical vision but no DAW experience can go from an empty projec
 - [x] Electron-based application shell with cross-platform support (macOS, Windows, Linux) — Validated in Phase 1: Build System & App Shell
 - [x] Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer — Validated in Phase 1: Build System & App Shell
 - [x] Hybrid audio engine (C++/JUCE) with real-time multi-track audio processing, transport controls, and lock-free threading — Validated in Phase 2: Audio Engine Core
+- [x] Single command dispatcher for all DAW operations with undo/redo and JSON-serializable state — Validated in Phase 3: Command Dispatcher & State
 
 ### Active
 
@@ -90,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 after Phase 2 completion*
+*Last updated: 2026-03-28 after Phase 3 completion*
