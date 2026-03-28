@@ -13,7 +13,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 - [ ] **ENG-02**: Audio engine supports configurable buffer sizes (128-2048 samples) with stable playback
 - [ ] **ENG-03**: Audio routing supports per-track insert effect chains with serial processing
 - [ ] **ENG-04**: Audio routing supports master bus with insert chain for final output processing
-- [ ] **ENG-05**: Transport controls: play, stop, pause, loop region, with BPM and time signature control
+- [x] **ENG-05**: Transport controls: play, stop, pause, loop region, with BPM and time signature control
 - [ ] **ENG-06**: Metronome with toggleable click track and adjustable volume
 
 ### Instruments
@@ -71,7 +71,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 - [ ] **ARCH-01**: Single command dispatcher — all operations (UI, future AI) flow through one interface
 - [ ] **ARCH-02**: DAW state serializable to JSON — full project state readable by external consumers
 - [x] **ARCH-03**: Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer
-- [ ] **ARCH-04**: Lock-free FIFO communication between audio thread and UI/command thread
+- [x] **ARCH-04**: Lock-free FIFO communication between audio thread and UI/command thread
 - [ ] **ARCH-05**: Every instrument and effect parameter addressable by ID via command dispatcher
 - [ ] **ARCH-06**: Command dispatcher emits events for all state changes (enables future AI state tracking)
 
@@ -147,9 +147,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENG-01 | Phase 2 | Pending |
 | ENG-02 | Phase 2 | Pending |
 | ENG-04 | Phase 2 | Pending |
-| ENG-05 | Phase 2 | Pending |
+| ENG-05 | Phase 2 | Complete |
 | ENG-06 | Phase 2 | Pending |
-| ARCH-04 | Phase 2 | Pending |
+| ARCH-04 | Phase 2 | Complete |
 | ARCH-01 | Phase 3 | Pending |
 | ARCH-02 | Phase 3 | Pending |
 | ARCH-05 | Phase 3 | Pending |
