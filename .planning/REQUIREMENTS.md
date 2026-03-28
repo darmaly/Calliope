@@ -34,12 +34,12 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Timeline & Arrangement
 
-- [ ] **TL-01**: Multi-track horizontal timeline with zoomable view and playhead
+- [x] **TL-01**: Multi-track horizontal timeline with zoomable view and playhead
 - [ ] **TL-02**: MIDI clips can be created, moved, resized, copied, and deleted on tracks
 - [ ] **TL-03**: Audio clips display waveforms and can be placed on tracks
-- [ ] **TL-04**: Tracks can be added, removed, reordered, renamed, and color-coded
-- [ ] **TL-05**: Snap-to-grid with configurable grid resolution (1/4, 1/8, 1/16, 1/32 notes)
-- [ ] **TL-06**: Loop region selection for repeated playback of a section
+- [x] **TL-04**: Tracks can be added, removed, reordered, renamed, and color-coded
+- [x] **TL-05**: Snap-to-grid with configurable grid resolution (1/4, 1/8, 1/16, 1/32 notes)
+- [x] **TL-06**: Loop region selection for repeated playback of a section
 
 ### Piano Roll
 
@@ -166,12 +166,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FX-05 | Phase 5 | Complete |
 | FX-06 | Phase 5 | Complete |
 | ENG-03 | Phase 5 | Complete |
-| TL-01 | Phase 6 | Pending |
+| TL-01 | Phase 6 | Complete |
 | TL-02 | Phase 6 | Pending |
 | TL-03 | Phase 6 | Pending |
-| TL-04 | Phase 6 | Pending |
-| TL-05 | Phase 6 | Pending |
-| TL-06 | Phase 6 | Pending |
+| TL-04 | Phase 6 | Complete |
+| TL-05 | Phase 6 | Complete |
+| TL-06 | Phase 6 | Complete |
 | PR-01 | Phase 7 | Pending |
 | PR-02 | Phase 7 | Pending |
 | PR-03 | Phase 7 | Pending |
