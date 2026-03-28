@@ -1,7 +1,8 @@
 ---
 phase: 7
 slug: piano-roll
-status: draft
+status: approved
+reviewed_at: 2026-03-28
 shadcn_initialized: false
 preset: none
 created: 2026-03-28
@@ -44,7 +45,7 @@ Declared values (must be multiples of 4):
 Exceptions:
 - Piano keyboard fixed at 60px width per D-02
 - Note row height is variable 8-32px (default 16px) due to vertical zoom per D-03
-- Split panel drag handle: 6px hit area (3px visible line)
+- Split panel drag handle: 8px hit area (2px visible line)
 - Velocity lane: 80px default collapsed height, 120px expanded
 
 ---
@@ -54,11 +55,11 @@ Exceptions:
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 13px | 400 (regular) | 1.5 | Toolbar labels, dropdown text |
-| Label | 11px | 400 (regular) | 1.2 | Grid resolution label, piano key labels, note info |
+| Label | 10px | 400 (regular) | 1.2 | Grid resolution label, piano key labels, note info |
 | Heading | 13px | 500 (medium) | 1.2 | Toolbar button text, panel titles |
 | Tiny | 10px | 400 (regular) | 1.0 | Engine status, velocity value labels |
 
-Source: Existing Phase 6 codebase uses 11px for labels (`GridResolutionSelect`), 13px for toolbar controls (`TimelineToolbar`), 11px for PixiJS clip names (`MidiClip`), 10px for engine status (`App.tsx`). Font family `Inter, sans-serif` confirmed in `MidiClip.tsx` PixiJS text style.
+Source: Existing Phase 6 codebase uses 11px for labels (`GridResolutionSelect`), 13px for toolbar controls (`TimelineToolbar`), 11px for PixiJS clip names (`MidiClip`), 10px for engine status (`App.tsx`). Font family `Inter, sans-serif` confirmed in `MidiClip.tsx` PixiJS text style. Piano roll collapses Label and Tiny to single 10px size, using color (`#cccccc` vs `#999999`) to differentiate roles.
 
 ### Piano Keyboard Labels
 - White key note names (C-2 through G8): 10px regular weight, color `#cccccc`
@@ -116,6 +117,17 @@ Source: D-09 specifies "Note color opacity indicates velocity (darker = higher v
 
 ---
 
+## Visual Hierarchy
+
+**Primary focal point:** The note grid canvas is the primary work area — all other elements support it.
+
+**Reading order:**
+1. **Toolbar** (top) — navigation and controls, read first for orientation
+2. **Note grid + keyboard** (center) — primary work area, largest visual weight
+3. **Velocity lane** (bottom) — secondary detail, collapsible
+
+---
+
 ## Component Inventory
 
 ### Layout Components (Tailwind/DOM)
@@ -123,7 +135,7 @@ Source: D-09 specifies "Note color opacity indicates velocity (darker = higher v
 | Component | Description | Dimensions |
 |-----------|-------------|------------|
 | `PianoRollPanel` | Collapsible bottom panel container with split divider | min-height: 200px, max-height: 60vh |
-| `SplitDivider` | Horizontal drag handle between timeline and piano roll | 6px hit area, 2px visible line, cursor: `row-resize` |
+| `SplitDivider` | Horizontal drag handle between timeline and piano roll | 8px hit area, 2px visible line, cursor: `row-resize` |
 | `PianoRollToolbar` | Toolbar above piano roll canvas | 36px height, bg `#252542`, border-bottom `#3a3a5a` |
 | `VelocityLane` | Collapsible bar chart below note grid | 80px default height, toggle via toolbar button |
 
@@ -218,8 +230,8 @@ Source: D-09 specifies "Note color opacity indicates velocity (darker = higher v
 - Collapsed state: Only toolbar visible (36px), content hidden
 
 ### Context Menu
-- Right-click on note: Cut, Copy, Duplicate, Delete, "Set Velocity..."
-- Right-click on empty grid: Paste, Select All
+- Right-click on note: "Cut Notes", "Copy Notes", "Duplicate Notes", "Delete Notes", "Set Velocity..."
+- Right-click on empty grid: "Paste Notes", "Select All Notes"
 - Portal-based rendering matching Phase 6 pattern (D-06 in Phase 6 decisions)
 
 ---
@@ -232,13 +244,13 @@ Source: D-09 specifies "Note color opacity indicates velocity (darker = higher v
 | Empty state heading | "No MIDI clip selected" |
 | Empty state body | "Double-click a MIDI clip in the timeline to open it here." |
 | Error state | "Could not load clip data. Try selecting the clip again." |
-| Quantize button label | "Quantize" |
+| Quantize button label | "Quantize Notes" |
 | Quantize tooltip | "Snap selected notes to grid (Ctrl+Q)" |
 | Velocity lane toggle | "Velocity" |
 | Velocity tooltip | "Show/hide velocity lane" |
 | No selection for quantize | "Select notes to quantize" (toast, 2s auto-dismiss) |
 | Delete confirmation | Not needed (Delete is undoable via Ctrl+Z, no confirmation dialog) |
-| Context menu items | "Cut", "Copy", "Paste", "Duplicate", "Delete", "Select All", "Set Velocity..." |
+| Context menu items | "Cut Notes", "Copy Notes", "Paste Notes", "Duplicate Notes", "Delete Notes", "Select All Notes", "Set Velocity..." |
 
 ---
 
@@ -307,7 +319,7 @@ type GridResolution =
 |---------|-----------|-------|
 | Piano keyboard width | fixed | 60px |
 | Toolbar height | fixed | 36px |
-| Split divider | hit area | 6px |
+| Split divider | hit area | 8px |
 | Split divider | visible | 2px, color `#3a3a5a` |
 | Note row height | variable | 8-32px, default 16px |
 | Velocity lane height | variable | 80-200px, default 80px |
@@ -335,11 +347,11 @@ No component registries used. All components are custom-built with Tailwind CSS 
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: FLAG (non-blocking — "Velocity" single-word label)
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (2026-03-28)
