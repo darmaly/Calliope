@@ -43,11 +43,11 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Piano Roll
 
-- [ ] **PR-01**: Piano roll editor displays MIDI notes on a pitch/time grid with velocity
-- [ ] **PR-02**: Notes can be drawn, selected, moved, resized, copied, and deleted
-- [ ] **PR-03**: Velocity editing per note via velocity lane or note color
-- [ ] **PR-04**: Quantize function snaps selected notes to grid resolution
-- [ ] **PR-05**: Piano roll supports scroll, zoom, and keyboard reference on left edge
+- [x] **PR-01**: Piano roll editor displays MIDI notes on a pitch/time grid with velocity
+- [x] **PR-02**: Notes can be drawn, selected, moved, resized, copied, and deleted
+- [x] **PR-03**: Velocity editing per note via velocity lane or note color
+- [x] **PR-04**: Quantize function snaps selected notes to grid resolution
+- [x] **PR-05**: Piano roll supports scroll, zoom, and keyboard reference on left edge
 
 ### Mixer
 
@@ -172,11 +172,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TL-04 | Phase 6 | Complete |
 | TL-05 | Phase 6 | Complete |
 | TL-06 | Phase 6 | Complete |
-| PR-01 | Phase 7 | Pending |
-| PR-02 | Phase 7 | Pending |
-| PR-03 | Phase 7 | Pending |
-| PR-04 | Phase 7 | Pending |
-| PR-05 | Phase 7 | Pending |
+| PR-01 | Phase 7 | Complete |
+| PR-02 | Phase 7 | Complete |
+| PR-03 | Phase 7 | Complete |
+| PR-04 | Phase 7 | Complete |
+| PR-05 | Phase 7 | Complete |
 | MIX-01 | Phase 8 | Pending |
 | MIX-02 | Phase 8 | Pending |
 | MIX-03 | Phase 8 | Pending |

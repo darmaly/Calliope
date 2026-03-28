@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-03-28T17:05:47.630Z"
+status: executing
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-28T22:17:55.073Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 21
+  completed_plans: 19
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A person with a musical vision but no DAW experience can create professional-sounding music with AI assistance.
-**Current focus:** Phase 06 — timeline-arrangement
+**Current focus:** Phase 07 — piano-roll
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 07 (piano-roll) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-03-28
 
 Progress: [░░░░░░░░░░] 0%
@@ -69,6 +69,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06 P03 | 296 | 2 tasks | 9 files |
 | Phase 06 P02 | 322 | 2 tasks | 14 files |
 | Phase 06 P04 | 45 | 2 tasks | 11 files |
+| Phase 07 P01 | 263 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Recent decisions affecting current work:
 - [Phase 06]: CSS playhead overlay instead of PixiJS child (simpler z-ordering)
 - [Phase 06]: Portal-based context menu with document click listener for outside-click dismissal
 - [Phase 06]: Pointer events (not mouse events) for all timeline interaction handlers
+- [Phase 07]: pitchToNoteName uses floor(pitch/12)-2 convention (MIDI note 0=C-2, 127=G8)
+- [Phase 07]: Active clip load/flush pattern between piano-roll-store and timeline-store
+- [Phase 07]: Note operations as standalone functions using store.getState() pattern
 
 ### Pending Todos
 
@@ -134,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:59:38.551Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-03-28T22:17:55.068Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

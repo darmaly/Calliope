@@ -132,7 +132,7 @@ Plans:
   5. Piano roll supports scroll, zoom, and shows keyboard reference on the left edge
 **Plans:** 3 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Types, store, helpers, note operations, GridResolution triplet extension with full test coverage
+- [x] 07-01-PLAN.md -- Types, store, helpers, note operations, GridResolution triplet extension with full test coverage
 - [ ] 07-02-PLAN.md -- Split panel layout, PixiJS canvas with keyboard, grid, notes, velocity lane, playhead
 - [ ] 07-03-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, timeline clip opening, human verify
 **UI hint**: yes
