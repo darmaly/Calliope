@@ -8,6 +8,20 @@ import { NoteGrid } from './NoteGrid'
 import { NoteRect } from './NoteRect'
 import { VelocityLane } from './VelocityLane'
 import { PianoRollPlayhead } from './PianoRollPlayhead'
+import { pixelToBeat, snapToBeat, beatToPixel } from '../../utils/beat-math'
+import {
+  addNote,
+  removeSelectedNotes,
+  moveNotes,
+  resizeNote,
+  duplicateNotes,
+  copyNotes,
+  pasteNotes,
+  cutNotes,
+  scaleSelectedVelocities,
+} from '../../utils/note-operations'
+import { useContextMenu } from '../../hooks/use-context-menu'
+import { ContextMenu } from '../shared/ContextMenu'
 
 // Import pixi-setup to register base PixiJS components
 import '../timeline/pixi-setup'
@@ -19,6 +33,20 @@ interface PianoRollCanvasProps {
 
 const MIN_ROW_HEIGHT = 8
 const MAX_ROW_HEIGHT = 32
+const EDGE_THRESHOLD = 6
+const MIN_DRAG_DISTANCE = 4
+
+type DragMode = 'none' | 'create' | 'select' | 'move' | 'resize-left' | 'resize-right' | 'velocity'
+
+interface DragState {
+  mode: DragMode
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+  noteId?: string
+  originals?: Record<string, { startBeat: number; pitch: number }>
+}
 
 /**
  * Inner PixiJS content rendered inside <Application>.
@@ -198,17 +226,468 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
 }
 
 export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvasProps) {
+  const contextMenu = useContextMenu()
+
+  const [drag, setDrag] = useState<DragState>({
+    mode: 'none',
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+  })
+
+  const [ghost, setGhost] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [velocityTooltip, setVelocityTooltip] = useState<{ x: number; y: number; value: number } | null>(null)
+  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+
+  const selectNote = usePianoRollStore((s) => s.selectNote)
+  const toggleNoteSelection = usePianoRollStore((s) => s.toggleNoteSelection)
+  const clearNoteSelection = usePianoRollStore((s) => s.clearNoteSelection)
+  const selectAllNotes = usePianoRollStore((s) => s.selectAllNotes)
+  const selectNotesInRect = usePianoRollStore((s) => s.selectNotesInRect)
+
+  /**
+   * Find a note at a given pixel position (relative to overlay).
+   * Returns the note and which edge/body was hit, or null.
+   */
+  const findNoteAt = useCallback(
+    (px: number, py: number): { noteId: string; edge: 'left' | 'right' | 'body' } | null => {
+      const prState = usePianoRollStore.getState()
+      const tlState = useTimelineStore.getState()
+      const { notes, scrollX, scrollY, noteRowHeight } = prState
+      const { pixelsPerBeat } = tlState
+
+      // Subtract keyboard width before beat calculation
+      const gridPx = px - KEYBOARD_WIDTH
+      if (gridPx < 0) return null
+
+      const beat = pixelToBeat(gridPx, pixelsPerBeat, scrollX)
+      const pitch = 127 - Math.floor((py + scrollY) / noteRowHeight)
+
+      if (pitch < 0 || pitch > 127) return null
+
+      for (const note of Object.values(notes)) {
+        if (note.pitch !== pitch) continue
+        if (beat >= note.startBeat && beat <= note.startBeat + note.lengthBeats) {
+          // Check edge proximity
+          const leftEdgePx = beatToPixel(note.startBeat, pixelsPerBeat, scrollX) + KEYBOARD_WIDTH
+          const rightEdgePx = beatToPixel(note.startBeat + note.lengthBeats, pixelsPerBeat, scrollX) + KEYBOARD_WIDTH
+
+          let edge: 'left' | 'right' | 'body' = 'body'
+          if (Math.abs(px - leftEdgePx) <= EDGE_THRESHOLD) edge = 'left'
+          else if (Math.abs(px - rightEdgePx) <= EDGE_THRESHOLD) edge = 'right'
+
+          return { noteId: note.id, edge }
+        }
+      }
+      return null
+    },
+    [],
+  )
+
+  /**
+   * Find a note whose velocity bar occupies the given x position in the velocity lane.
+   */
+  const findVelocityBarAt = useCallback(
+    (px: number): string | null => {
+      const prState = usePianoRollStore.getState()
+      const tlState = useTimelineStore.getState()
+      const { notes, scrollX } = prState
+      const { pixelsPerBeat } = tlState
+
+      const gridPx = px - KEYBOARD_WIDTH
+      if (gridPx < 0) return null
+
+      const beat = pixelToBeat(gridPx, pixelsPerBeat, scrollX)
+      const barHalfWidth = 3 / pixelsPerBeat // ~3px tolerance in beat space
+
+      for (const note of Object.values(notes)) {
+        const center = note.startBeat + note.lengthBeats / 2
+        if (Math.abs(beat - center) <= Math.max(barHalfWidth, note.lengthBeats / 2)) {
+          return note.id
+        }
+      }
+      return null
+    },
+    [],
+  )
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button === 2) return // Right-click handled by context menu
+
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+
+      const prState = usePianoRollStore.getState()
+      const { velocityLaneVisible, velocityLaneHeight } = prState
+      const viewportHeight = rect.height
+      const noteAreaHeight = velocityLaneVisible ? viewportHeight - velocityLaneHeight : viewportHeight
+
+      // Check if click is in velocity lane area
+      if (velocityLaneVisible && py >= noteAreaHeight) {
+        const barNoteId = findVelocityBarAt(px)
+        if (barNoteId) {
+          // Ensure note is selected
+          if (!prState.selectedNoteIds.has(barNoteId)) {
+            selectNote(barNoteId)
+          }
+          setDrag({ mode: 'velocity', startX: px, startY: py, currentX: px, currentY: py, noteId: barNoteId })
+          ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+          return
+        }
+      }
+
+      // Check for note hit in the grid area
+      if (py < noteAreaHeight) {
+        const hit = findNoteAt(px, py)
+
+        if (hit) {
+          const { noteId, edge } = hit
+
+          // Selection logic
+          if (e.shiftKey) {
+            selectNote(noteId, true)
+          } else if (e.ctrlKey || e.metaKey) {
+            toggleNoteSelection(noteId)
+          } else if (!prState.selectedNoteIds.has(noteId)) {
+            selectNote(noteId)
+          }
+
+          if (edge === 'left') {
+            setDrag({ mode: 'resize-left', startX: px, startY: py, currentX: px, currentY: py, noteId })
+          } else if (edge === 'right') {
+            setDrag({ mode: 'resize-right', startX: px, startY: py, currentX: px, currentY: py, noteId })
+          } else {
+            // Move mode — store originals for all selected notes
+            const currentSelected = prState.selectedNoteIds.has(noteId)
+              ? prState.selectedNoteIds
+              : new Set([noteId])
+            const originals: Record<string, { startBeat: number; pitch: number }> = {}
+            for (const nid of currentSelected) {
+              const note = prState.notes[nid]
+              if (note) originals[nid] = { startBeat: note.startBeat, pitch: note.pitch }
+            }
+            setDrag({ mode: 'move', startX: px, startY: py, currentX: px, currentY: py, originals })
+          }
+        } else {
+          // Click on empty grid: clear selection and start create mode
+          clearNoteSelection()
+          setDrag({ mode: 'create', startX: px, startY: py, currentX: px, currentY: py })
+        }
+      }
+
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    },
+    [findNoteAt, findVelocityBarAt, selectNote, toggleNoteSelection, clearNoteSelection],
+  )
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+
+      const prState = usePianoRollStore.getState()
+      const tlState = useTimelineStore.getState()
+      const { scrollX, scrollY, noteRowHeight, velocityLaneVisible, velocityLaneHeight } = prState
+      const { pixelsPerBeat, snapEnabled, gridResolution } = tlState
+      const viewportHeight = rect.height
+      const noteAreaHeight = velocityLaneVisible ? viewportHeight - velocityLaneHeight : viewportHeight
+
+      if (drag.mode === 'none') {
+        // Update cursor based on what's under the pointer
+        if (velocityLaneVisible && py >= noteAreaHeight) {
+          const barId = findVelocityBarAt(px)
+          ;(e.currentTarget as HTMLElement).style.cursor = barId ? 'ns-resize' : 'default'
+        } else {
+          const hit = findNoteAt(px, py)
+          if (hit?.edge === 'left' || hit?.edge === 'right') {
+            ;(e.currentTarget as HTMLElement).style.cursor = 'col-resize'
+          } else if (hit) {
+            ;(e.currentTarget as HTMLElement).style.cursor = 'pointer'
+          } else {
+            ;(e.currentTarget as HTMLElement).style.cursor = 'crosshair'
+          }
+        }
+        return
+      }
+
+      setDrag((prev) => ({ ...prev, currentX: px, currentY: py }))
+
+      if (drag.mode === 'create') {
+        const dist = Math.abs(px - drag.startX)
+        if (dist < MIN_DRAG_DISTANCE) {
+          setGhost(null)
+          return
+        }
+
+        // Calculate ghost note position
+        const gridStartPx = Math.min(drag.startX, px) - KEYBOARD_WIDTH
+        const gridEndPx = Math.max(drag.startX, px) - KEYBOARD_WIDTH
+        if (gridStartPx < 0 && gridEndPx < 0) return
+
+        const startBeat = pixelToBeat(Math.max(0, gridStartPx), pixelsPerBeat, scrollX)
+        const endBeat = pixelToBeat(Math.max(0, gridEndPx), pixelsPerBeat, scrollX)
+        const snappedStart = snapEnabled ? snapToBeat(startBeat, gridResolution) : startBeat
+        const snappedEnd = snapEnabled ? snapToBeat(endBeat, gridResolution) : endBeat
+        const pitch = 127 - Math.floor((drag.startY + scrollY) / noteRowHeight)
+
+        if (pitch >= 0 && pitch <= 127) {
+          const ghostX = beatToPixel(snappedStart, pixelsPerBeat, scrollX) + KEYBOARD_WIDTH
+          const ghostY = (127 - pitch) * noteRowHeight - scrollY
+          const ghostWidth = (snappedEnd - snappedStart) * pixelsPerBeat
+
+          setGhost({
+            x: ghostX,
+            y: ghostY,
+            width: Math.max(ghostWidth, gridResolution * pixelsPerBeat),
+            height: noteRowHeight,
+          })
+        }
+      }
+
+      if (drag.mode === 'select') {
+        // Show rubber-band selection box
+        const minX = Math.min(drag.startX, px)
+        const minY = Math.min(drag.startY, py)
+        const maxX = Math.max(drag.startX, px)
+        const maxY = Math.max(drag.startY, py)
+        setSelectionBox({ x: minX, y: minY, width: maxX - minX, height: maxY - minY })
+
+        // Calculate intersecting notes
+        const intersecting: string[] = []
+        for (const note of Object.values(prState.notes)) {
+          const noteLeft = beatToPixel(note.startBeat, pixelsPerBeat, scrollX) + KEYBOARD_WIDTH
+          const noteRight = beatToPixel(note.startBeat + note.lengthBeats, pixelsPerBeat, scrollX) + KEYBOARD_WIDTH
+          const noteTop = (127 - note.pitch) * noteRowHeight - scrollY
+          const noteBottom = noteTop + noteRowHeight
+
+          if (noteRight >= minX && noteLeft <= maxX && noteBottom >= minY && noteTop <= maxY) {
+            intersecting.push(note.id)
+          }
+        }
+        if (intersecting.length > 0) {
+          selectNotesInRect(intersecting)
+        }
+      }
+
+      if (drag.mode === 'move' && drag.originals) {
+        const deltaPx = px - drag.startX
+        let deltaBeat = deltaPx / pixelsPerBeat
+        const deltaPitch = Math.round((drag.startY - py) / noteRowHeight)
+
+        if (snapEnabled) {
+          deltaBeat = snapToBeat(deltaBeat, gridResolution)
+        }
+
+        // Apply move to all selected notes using originals
+        const noteIds = Object.keys(drag.originals)
+        // Calculate updates from originals to avoid drift
+        for (const nid of noteIds) {
+          const orig = drag.originals[nid]
+          if (!orig) continue
+          const newPitch = Math.max(0, Math.min(127, orig.pitch + deltaPitch))
+          const newStart = Math.max(0, orig.startBeat + deltaBeat)
+          usePianoRollStore.getState().updateNote(nid, { pitch: newPitch, startBeat: newStart })
+        }
+      }
+
+      if (drag.mode === 'resize-right' && drag.noteId) {
+        const note = prState.notes[drag.noteId]
+        if (note) {
+          const gridPx = px - KEYBOARD_WIDTH
+          let endBeat = pixelToBeat(gridPx, pixelsPerBeat, scrollX)
+          if (snapEnabled) endBeat = snapToBeat(endBeat, gridResolution)
+          const newLength = Math.max(gridResolution, endBeat - note.startBeat)
+          resizeNote(drag.noteId, newLength)
+        }
+      }
+
+      if (drag.mode === 'resize-left' && drag.noteId) {
+        const note = prState.notes[drag.noteId]
+        if (note) {
+          const gridPx = px - KEYBOARD_WIDTH
+          let newStart = pixelToBeat(gridPx, pixelsPerBeat, scrollX)
+          if (snapEnabled) newStart = snapToBeat(newStart, gridResolution)
+          const origEnd = note.startBeat + note.lengthBeats
+          newStart = Math.min(newStart, origEnd - gridResolution)
+          newStart = Math.max(0, newStart)
+          const newLength = origEnd - newStart
+          usePianoRollStore.getState().updateNote(drag.noteId, { startBeat: newStart })
+          resizeNote(drag.noteId, newLength)
+        }
+      }
+
+      if (drag.mode === 'velocity' && drag.noteId) {
+        // Calculate new velocity from pointer Y relative to velocity lane
+        const velocityLaneTop = noteAreaHeight
+        const velocityLaneH = velocityLaneHeight
+        const relY = py - velocityLaneTop
+        const newVelocity = Math.max(1, Math.min(127, Math.round((1 - relY / velocityLaneH) * 127)))
+
+        const selectedIds = prState.selectedNoteIds
+        if (selectedIds.size > 1 && selectedIds.has(drag.noteId)) {
+          scaleSelectedVelocities(drag.noteId, newVelocity)
+        } else {
+          usePianoRollStore.getState().updateNote(drag.noteId, { velocity: newVelocity })
+        }
+
+        setVelocityTooltip({ x: px + 12, y: py - 20, value: newVelocity })
+      }
+    },
+    [drag, findNoteAt, findVelocityBarAt, selectNotesInRect],
+  )
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+
+      const prState = usePianoRollStore.getState()
+      const tlState = useTimelineStore.getState()
+      const { scrollX, scrollY, noteRowHeight } = prState
+      const { pixelsPerBeat, snapEnabled, gridResolution } = tlState
+
+      if (drag.mode === 'create') {
+        const dist = Math.abs(px - drag.startX)
+        if (dist >= MIN_DRAG_DISTANCE) {
+          // Calculate snapped start, pitch, length
+          const gridStartPx = Math.min(drag.startX, px) - KEYBOARD_WIDTH
+          const gridEndPx = Math.max(drag.startX, px) - KEYBOARD_WIDTH
+
+          const startBeat = pixelToBeat(Math.max(0, gridStartPx), pixelsPerBeat, scrollX)
+          const endBeat = pixelToBeat(Math.max(0, gridEndPx), pixelsPerBeat, scrollX)
+          const snappedStart = snapEnabled ? snapToBeat(startBeat, gridResolution) : startBeat
+          const snappedEnd = snapEnabled ? snapToBeat(endBeat, gridResolution) : endBeat
+          const length = snappedEnd - snappedStart
+          const pitch = 127 - Math.floor((drag.startY + scrollY) / noteRowHeight)
+
+          if (length >= gridResolution && pitch >= 0 && pitch <= 127) {
+            addNote(pitch, snappedStart, length)
+          }
+        }
+        // If dist < MIN_DRAG_DISTANCE: treated as deselect (already cleared in pointerDown)
+      }
+
+      // Reset all transient state
+      setDrag({ mode: 'none', startX: 0, startY: 0, currentX: 0, currentY: 0 })
+      setGhost(null)
+      setVelocityTooltip(null)
+      setSelectionBox(null)
+      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+    },
+    [drag],
+  )
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+      const hit = findNoteAt(px, py)
+
+      const prState = usePianoRollStore.getState()
+      const tlState = useTimelineStore.getState()
+
+      if (hit) {
+        // Select the note if not already selected
+        if (!prState.selectedNoteIds.has(hit.noteId)) {
+          selectNote(hit.noteId)
+        }
+        contextMenu.show(e, [
+          { label: 'Cut Notes', action: () => cutNotes() },
+          { label: 'Copy Notes', action: () => copyNotes() },
+          { label: 'Duplicate Notes', action: () => duplicateNotes() },
+          { label: 'Delete Notes', action: () => removeSelectedNotes(), destructive: true },
+        ])
+      } else {
+        // Empty grid context menu
+        const gridPx = px - KEYBOARD_WIDTH
+        const beat = gridPx > 0 ? pixelToBeat(gridPx, tlState.pixelsPerBeat, prState.scrollX) : 0
+        const snappedBeat = tlState.snapEnabled ? snapToBeat(beat, tlState.gridResolution) : beat
+
+        contextMenu.show(e, [
+          {
+            label: 'Paste Notes',
+            action: () => pasteNotes(snappedBeat),
+          },
+          { label: 'Select All Notes', action: () => selectAllNotes() },
+        ])
+      }
+    },
+    [findNoteAt, selectNote, selectAllNotes, contextMenu],
+  )
+
   return (
     <div className="relative w-full h-full">
       <Application resizeTo={containerRef} background="#1a1a2e" antialias>
         <CanvasContent containerRef={containerRef} trackColorHex={trackColorHex} />
       </Application>
 
-      {/* Transparent DOM overlay for pointer events — Plan 03 will add handlers */}
-      <div className="absolute inset-0" style={{ zIndex: 10 }} />
+      {/* Transparent DOM overlay for pointer events */}
+      <div
+        className="absolute inset-0"
+        style={{ zIndex: 10 }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onContextMenu={handleContextMenu}
+      />
+
+      {/* Ghost note preview during creation */}
+      {ghost && (
+        <div
+          className="absolute pointer-events-none rounded border border-[#6c63ff] bg-[#6c63ff]/20"
+          style={{
+            left: ghost.x,
+            top: ghost.y,
+            width: ghost.width,
+            height: ghost.height,
+            zIndex: 11,
+            opacity: 0.5,
+          }}
+        />
+      )}
+
+      {/* Rubber-band selection box */}
+      {selectionBox && (
+        <div
+          className="absolute pointer-events-none border border-[#6c63ff] bg-[#6c63ff]/10"
+          style={{
+            left: selectionBox.x,
+            top: selectionBox.y,
+            width: selectionBox.width,
+            height: selectionBox.height,
+            zIndex: 11,
+          }}
+        />
+      )}
+
+      {/* Velocity tooltip */}
+      {velocityTooltip && (
+        <span
+          className="absolute pointer-events-none bg-[#252542] border border-[#3a3a5a] rounded px-2 py-0.5 text-[10px] text-[#eeeeee]"
+          style={{
+            left: velocityTooltip.x,
+            top: velocityTooltip.y,
+            zIndex: 12,
+          }}
+        >
+          Vel: {velocityTooltip.value}
+        </span>
+      )}
 
       {/* Playhead overlay */}
       <PianoRollPlayhead />
+
+      {/* Context menu */}
+      {contextMenu.visible && (
+        <ContextMenu items={contextMenu.items} position={contextMenu.position} onClose={contextMenu.close} />
+      )}
     </div>
   )
 }
