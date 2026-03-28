@@ -115,8 +115,8 @@ Plans:
 **Plans:** 4 plans
 Plans:
 - [x] 06-01-PLAN.md -- Foundation: dependencies, types, Zustand store, beat-math utilities, test scaffolds
-- [ ] 06-02-PLAN.md -- Timeline layout shell, track headers, toolbar, PixiJS canvas with grid and viewport
-- [ ] 06-03-PLAN.md -- Clip rendering (MIDI/Audio with waveforms), selection box, loop region, clip operations
+- [x] 06-02-PLAN.md -- Timeline layout shell, track headers, toolbar, PixiJS canvas with grid and viewport
+- [x] 06-03-PLAN.md -- Clip rendering (MIDI/Audio with waveforms), selection box, loop region, clip operations
 - [ ] 06-04-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, engine sync, human verify
 **UI hint**: yes
 
