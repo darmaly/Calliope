@@ -24,6 +24,7 @@ add_executable(calliope_engine_tests
     test_instrument_commands.cpp
     test_effects.cpp
     test_insert_chain.cpp
+    test_effect_commands.cpp
 )
 
 target_link_libraries(calliope_engine_tests
