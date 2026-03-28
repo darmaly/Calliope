@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-03-28T15:26:52.219Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-28T15:27:08.906Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 10
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P03 | 300 | 2 tasks | 4 files |
 | Phase 06 P01 | 189 | 2 tasks | 12 files |
 | Phase 06 P03 | 296 | 2 tasks | 9 files |
+| Phase 06 P02 | 322 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,9 @@ Recent decisions affecting current work:
 - [Phase 06]: cullable={true} on clip containers for PixiJS viewport culling performance
 - [Phase 06]: Closed polygon approach for waveform rendering (top+mirrored bottom) as flat coordinate array
 - [Phase 06]: Engine clip dispatch wrapped in try/catch (C++ commands not yet implemented, store-only for now)
+- [Phase 06]: Canvas 2D ruler instead of PixiJS (simpler, isolated from viewport scroll)
+- [Phase 06]: Manual wheel event handler for scroll/zoom (precise Ctrl/Shift modifier control)
+- [Phase 06]: CSS playhead overlay instead of PixiJS child (simpler z-ordering)
 
 ### Pending Todos
 
@@ -127,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T15:26:40.603Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-03-28T15:27:08.900Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
