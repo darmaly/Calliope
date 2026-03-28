@@ -11,7 +11,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 - [x] **ENG-01**: Audio engine processes multi-track audio in real-time at 44.1kHz/48kHz, 32-bit float internal
 - [x] **ENG-02**: Audio engine supports configurable buffer sizes (128-2048 samples) with stable playback
-- [ ] **ENG-03**: Audio routing supports per-track insert effect chains with serial processing
+- [x] **ENG-03**: Audio routing supports per-track insert effect chains with serial processing
 - [x] **ENG-04**: Audio routing supports master bus with insert chain for final output processing
 - [x] **ENG-05**: Transport controls: play, stop, pause, loop region, with BPM and time signature control
 - [x] **ENG-06**: Metronome with toggleable click track and adjustable volume
@@ -25,11 +25,11 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Effects
 
-- [ ] **FX-01**: Parametric EQ with at least 4 bands (low shelf, 2 parametric, high shelf)
-- [ ] **FX-02**: Dynamic compressor with threshold, ratio, attack, release, makeup gain
-- [ ] **FX-03**: Algorithmic reverb with room size, damping, wet/dry, pre-delay
-- [ ] **FX-04**: Tempo-synced delay with feedback, wet/dry, and ping-pong option
-- [ ] **FX-05**: Brick-wall limiter on master bus for final output loudness control
+- [x] **FX-01**: Parametric EQ with at least 4 bands (low shelf, 2 parametric, high shelf)
+- [x] **FX-02**: Dynamic compressor with threshold, ratio, attack, release, makeup gain
+- [x] **FX-03**: Algorithmic reverb with room size, damping, wet/dry, pre-delay
+- [x] **FX-04**: Tempo-synced delay with feedback, wet/dry, and ping-pong option
+- [x] **FX-05**: Brick-wall limiter on master bus for final output loudness control
 - [ ] **FX-06**: Each effect exposes all parameters via the command dispatcher interface
 
 ### Timeline & Arrangement
@@ -159,13 +159,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INST-02 | Phase 4 | Complete |
 | INST-03 | Phase 4 | Complete |
 | INST-04 | Phase 4 | Complete |
-| FX-01 | Phase 5 | Pending |
-| FX-02 | Phase 5 | Pending |
-| FX-03 | Phase 5 | Pending |
-| FX-04 | Phase 5 | Pending |
-| FX-05 | Phase 5 | Pending |
+| FX-01 | Phase 5 | Complete |
+| FX-02 | Phase 5 | Complete |
+| FX-03 | Phase 5 | Complete |
+| FX-04 | Phase 5 | Complete |
+| FX-05 | Phase 5 | Complete |
 | FX-06 | Phase 5 | Pending |
-| ENG-03 | Phase 5 | Pending |
+| ENG-03 | Phase 5 | Complete |
 | TL-01 | Phase 6 | Pending |
 | TL-02 | Phase 6 | Pending |
 | TL-03 | Phase 6 | Pending |

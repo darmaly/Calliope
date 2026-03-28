@@ -98,7 +98,7 @@ Plans:
   5. All effect parameters are controllable via the command dispatcher
 **Plans:** 3 plans
 Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
+- [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
 - [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
 - [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 
