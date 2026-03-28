@@ -22,6 +22,8 @@ add_executable(calliope_engine_tests
     test_poly_synth.cpp
     test_bass_synth.cpp
     test_instrument_commands.cpp
+    test_effects.cpp
+    test_insert_chain.cpp
 )
 
 target_link_libraries(calliope_engine_tests
