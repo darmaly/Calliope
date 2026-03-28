@@ -16,6 +16,8 @@ add_executable(calliope_engine_tests
     test_command_dispatcher.cpp
     test_parameter_registry.cpp
     test_project_state.cpp
+    test_transport_commands.cpp
+    test_parameter_commands.cpp
 )
 
 target_link_libraries(calliope_engine_tests

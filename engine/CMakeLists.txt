@@ -8,6 +8,8 @@ add_library(calliope_engine STATIC
     src/command_dispatcher.cpp
     src/parameter_registry.cpp
     src/project_state.cpp
+    src/commands/transport_commands.cpp
+    src/commands/parameter_commands.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)
