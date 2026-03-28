@@ -13,6 +13,8 @@ add_library(calliope_engine STATIC
     src/instruments/drum_machine.cpp
     src/instruments/poly_synth.cpp
     src/instruments/poly_synth_voice.cpp
+    src/instruments/bass_synth.cpp
+    src/instruments/bass_synth_voice.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)

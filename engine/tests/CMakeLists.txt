@@ -20,6 +20,7 @@ add_executable(calliope_engine_tests
     test_parameter_commands.cpp
     test_drum_machine.cpp
     test_poly_synth.cpp
+    test_bass_synth.cpp
 )
 
 target_link_libraries(calliope_engine_tests
