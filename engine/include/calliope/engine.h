@@ -40,6 +40,13 @@ public:
     BassSynthProcessor& getBassSynth();
     DrumMachineProcessor& getDrumMachine();
 
+    // Insert chain access (Phase 5)
+    InsertChain& getInsertChain(const juce::String& trackId);
+
+    // Dynamic effect parameter registration/unregistration
+    void registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect);
+    void unregisterEffectParameters(const juce::String& trackId, int slotIndex);
+
     // Convenience wrappers (delegate to AudioGraph/Transport)
     void transportPlay();
     void transportStop();

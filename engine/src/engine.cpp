@@ -1,5 +1,10 @@
 #include "calliope/engine.h"
 #include "calliope/project_state.h"
+#include "calliope/effects/parametric_eq.h"
+#include "calliope/effects/compressor.h"
+#include "calliope/effects/reverb.h"
+#include "calliope/effects/delay.h"
+#include "calliope/effects/limiter.h"
 #include <juce_core/juce_core.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <cassert>
@@ -64,6 +69,150 @@ Transport& Engine::getTransport()
 PolySynthProcessor& Engine::getPolySynth() { return getAudioGraph().getPolySynth(); }
 BassSynthProcessor& Engine::getBassSynth() { return getAudioGraph().getBassSynth(); }
 DrumMachineProcessor& Engine::getDrumMachine() { return getAudioGraph().getDrumMachine(); }
+
+InsertChain& Engine::getInsertChain(const juce::String& trackId)
+{
+    return getAudioGraph().getInsertChain(trackId);
+}
+
+void Engine::registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect)
+{
+    if (!effect) return;
+
+    juce::String prefix = "effects." + trackId + "." + juce::String(slotIndex) + ".";
+    juce::String effectName = effect->getName();
+
+    if (effectName == "ParametricEQ") {
+        auto* eq = dynamic_cast<ParametricEqProcessor*>(effect);
+        if (!eq) return;
+        for (int b = 0; b < 4; ++b) {
+            juce::String bandPrefix = prefix + "band" + juce::String(b) + ".";
+            auto& band = eq->bands[b];
+            paramRegistry_.registerParameter(bandPrefix + "frequency", {
+                [&band]() -> juce::var { return band.frequency.load(std::memory_order_relaxed); },
+                [&band](const juce::var& v) { band.frequency.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+                "float", 20.0, 20000.0
+            });
+            paramRegistry_.registerParameter(bandPrefix + "q", {
+                [&band]() -> juce::var { return band.q.load(std::memory_order_relaxed); },
+                [&band](const juce::var& v) { band.q.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+                "float", 0.1, 20.0
+            });
+            paramRegistry_.registerParameter(bandPrefix + "gainDb", {
+                [&band]() -> juce::var { return band.gainDb.load(std::memory_order_relaxed); },
+                [&band](const juce::var& v) { band.gainDb.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+                "float", -24.0, 24.0
+            });
+            paramRegistry_.registerParameter(bandPrefix + "enabled", {
+                [&band]() -> juce::var { return band.enabled.load(std::memory_order_relaxed); },
+                [&band](const juce::var& v) { band.enabled.store(static_cast<bool>(v), std::memory_order_relaxed); },
+                "bool", false, true
+            });
+        }
+    }
+    else if (effectName == "Compressor") {
+        auto* comp = dynamic_cast<CompressorProcessor*>(effect);
+        if (!comp) return;
+        paramRegistry_.registerParameter(prefix + "threshold", {
+            [comp]() -> juce::var { return comp->threshold.load(std::memory_order_relaxed); },
+            [comp](const juce::var& v) { comp->threshold.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", -60.0, 0.0
+        });
+        paramRegistry_.registerParameter(prefix + "ratio", {
+            [comp]() -> juce::var { return comp->ratio.load(std::memory_order_relaxed); },
+            [comp](const juce::var& v) { comp->ratio.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 1.0, 20.0
+        });
+        paramRegistry_.registerParameter(prefix + "attack", {
+            [comp]() -> juce::var { return comp->attack.load(std::memory_order_relaxed); },
+            [comp](const juce::var& v) { comp->attack.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.1, 200.0
+        });
+        paramRegistry_.registerParameter(prefix + "release", {
+            [comp]() -> juce::var { return comp->release.load(std::memory_order_relaxed); },
+            [comp](const juce::var& v) { comp->release.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 10.0, 1000.0
+        });
+        paramRegistry_.registerParameter(prefix + "makeupGain", {
+            [comp]() -> juce::var { return comp->makeupGain.load(std::memory_order_relaxed); },
+            [comp](const juce::var& v) { comp->makeupGain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 30.0
+        });
+    }
+    else if (effectName == "Reverb") {
+        auto* reverb = dynamic_cast<ReverbProcessor*>(effect);
+        if (!reverb) return;
+        paramRegistry_.registerParameter(prefix + "roomSize", {
+            [reverb]() -> juce::var { return reverb->roomSize.load(std::memory_order_relaxed); },
+            [reverb](const juce::var& v) { reverb->roomSize.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 1.0
+        });
+        paramRegistry_.registerParameter(prefix + "damping", {
+            [reverb]() -> juce::var { return reverb->damping.load(std::memory_order_relaxed); },
+            [reverb](const juce::var& v) { reverb->damping.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 1.0
+        });
+        paramRegistry_.registerParameter(prefix + "wetLevel", {
+            [reverb]() -> juce::var { return reverb->wetLevel.load(std::memory_order_relaxed); },
+            [reverb](const juce::var& v) { reverb->wetLevel.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 1.0
+        });
+        paramRegistry_.registerParameter(prefix + "dryLevel", {
+            [reverb]() -> juce::var { return reverb->dryLevel.load(std::memory_order_relaxed); },
+            [reverb](const juce::var& v) { reverb->dryLevel.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 1.0
+        });
+        paramRegistry_.registerParameter(prefix + "preDelay", {
+            [reverb]() -> juce::var { return reverb->preDelay.load(std::memory_order_relaxed); },
+            [reverb](const juce::var& v) { reverb->preDelay.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 250.0
+        });
+    }
+    else if (effectName == "Delay") {
+        auto* delay = dynamic_cast<DelayProcessor*>(effect);
+        if (!delay) return;
+        paramRegistry_.registerParameter(prefix + "feedback", {
+            [delay]() -> juce::var { return delay->feedback.load(std::memory_order_relaxed); },
+            [delay](const juce::var& v) { delay->feedback.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 0.95
+        });
+        paramRegistry_.registerParameter(prefix + "wetDry", {
+            [delay]() -> juce::var { return delay->wetDry.load(std::memory_order_relaxed); },
+            [delay](const juce::var& v) { delay->wetDry.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.0, 1.0
+        });
+        paramRegistry_.registerParameter(prefix + "syncNoteValue", {
+            [delay]() -> juce::var { return delay->syncNoteValue.load(std::memory_order_relaxed); },
+            [delay](const juce::var& v) { delay->syncNoteValue.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 0.125, 4.0
+        });
+        paramRegistry_.registerParameter(prefix + "pingPongEnabled", {
+            [delay]() -> juce::var { return delay->pingPongEnabled.load(std::memory_order_relaxed); },
+            [delay](const juce::var& v) { delay->pingPongEnabled.store(static_cast<bool>(v), std::memory_order_relaxed); },
+            "bool", false, true
+        });
+    }
+    else if (effectName == "Limiter") {
+        auto* lim = dynamic_cast<LimiterProcessor*>(effect);
+        if (!lim) return;
+        paramRegistry_.registerParameter(prefix + "threshold", {
+            [lim]() -> juce::var { return lim->threshold.load(std::memory_order_relaxed); },
+            [lim](const juce::var& v) { lim->threshold.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", -30.0, 0.0
+        });
+        paramRegistry_.registerParameter(prefix + "release", {
+            [lim]() -> juce::var { return lim->release.load(std::memory_order_relaxed); },
+            [lim](const juce::var& v) { lim->release.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+            "float", 10.0, 1000.0
+        });
+    }
+}
+
+void Engine::unregisterEffectParameters(const juce::String& trackId, int slotIndex)
+{
+    juce::String prefix = "effects." + trackId + "." + juce::String(slotIndex) + ".";
+    paramRegistry_.removeParametersWithPrefix(prefix);
+}
 
 // --- Convenience wrappers ---
 

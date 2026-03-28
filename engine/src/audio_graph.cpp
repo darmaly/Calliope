@@ -95,17 +95,45 @@ bool AudioGraph::initialise(double sampleRate, int bufferSize)
     drumMachinePtr_ = drumMachineProc.get();
     drumMachineNode_ = graph_.addNode(std::move(drumMachineProc));
 
-    // Connect instruments -> master (stereo: channels 0 and 1)
-    graph_.addConnection({{polySynthNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
-    graph_.addConnection({{polySynthNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
-    graph_.addConnection({{bassSynthNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
-    graph_.addConnection({{bassSynthNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
-    graph_.addConnection({{drumMachineNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
-    graph_.addConnection({{drumMachineNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+    // Create per-track InsertChainProcessors
+    auto polySynthChainProc = std::make_unique<InsertChainProcessor>("polysynth");
+    polySynthChainPtr_ = polySynthChainProc.get();
+    polySynthChainNode_ = graph_.addNode(std::move(polySynthChainProc));
 
-    // Connect master -> output (stereo: channels 0 and 1)
-    graph_.addConnection({{masterNode_->nodeID, 0}, {outputNode_->nodeID, 0}});
-    graph_.addConnection({{masterNode_->nodeID, 1}, {outputNode_->nodeID, 1}});
+    auto bassSynthChainProc = std::make_unique<InsertChainProcessor>("basssynth");
+    bassSynthChainPtr_ = bassSynthChainProc.get();
+    bassSynthChainNode_ = graph_.addNode(std::move(bassSynthChainProc));
+
+    auto drumMachineChainProc = std::make_unique<InsertChainProcessor>("drumMachine");
+    drumMachineChainPtr_ = drumMachineChainProc.get();
+    drumMachineChainNode_ = graph_.addNode(std::move(drumMachineChainProc));
+
+    // Create master InsertChainProcessor
+    auto masterChainProc = std::make_unique<InsertChainProcessor>("master");
+    masterChainPtr_ = masterChainProc.get();
+    masterChainNode_ = graph_.addNode(std::move(masterChainProc));
+
+    // Connect instruments -> per-track insert chains (stereo)
+    graph_.addConnection({{polySynthNode_->nodeID, 0}, {polySynthChainNode_->nodeID, 0}});
+    graph_.addConnection({{polySynthNode_->nodeID, 1}, {polySynthChainNode_->nodeID, 1}});
+    graph_.addConnection({{bassSynthNode_->nodeID, 0}, {bassSynthChainNode_->nodeID, 0}});
+    graph_.addConnection({{bassSynthNode_->nodeID, 1}, {bassSynthChainNode_->nodeID, 1}});
+    graph_.addConnection({{drumMachineNode_->nodeID, 0}, {drumMachineChainNode_->nodeID, 0}});
+    graph_.addConnection({{drumMachineNode_->nodeID, 1}, {drumMachineChainNode_->nodeID, 1}});
+
+    // Connect per-track insert chains -> master (stereo)
+    graph_.addConnection({{polySynthChainNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{polySynthChainNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+    graph_.addConnection({{bassSynthChainNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{bassSynthChainNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+    graph_.addConnection({{drumMachineChainNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{drumMachineChainNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+
+    // Connect master -> master insert chain -> output (stereo)
+    graph_.addConnection({{masterNode_->nodeID, 0}, {masterChainNode_->nodeID, 0}});
+    graph_.addConnection({{masterNode_->nodeID, 1}, {masterChainNode_->nodeID, 1}});
+    graph_.addConnection({{masterChainNode_->nodeID, 0}, {outputNode_->nodeID, 0}});
+    graph_.addConnection({{masterChainNode_->nodeID, 1}, {outputNode_->nodeID, 1}});
 
     // Configure AudioDeviceManager
     juce::AudioDeviceManager::AudioDeviceSetup setup;
@@ -144,11 +172,19 @@ void AudioGraph::shutdown()
     polySynthNode_ = nullptr;
     bassSynthNode_ = nullptr;
     drumMachineNode_ = nullptr;
+    polySynthChainNode_ = nullptr;
+    bassSynthChainNode_ = nullptr;
+    drumMachineChainNode_ = nullptr;
+    masterChainNode_ = nullptr;
     masterBusPtr_ = nullptr;
     metronomePtr_ = nullptr;
     polySynthPtr_ = nullptr;
     bassSynthPtr_ = nullptr;
     drumMachinePtr_ = nullptr;
+    polySynthChainPtr_ = nullptr;
+    bassSynthChainPtr_ = nullptr;
+    drumMachineChainPtr_ = nullptr;
+    masterChainPtr_ = nullptr;
     initialised_ = false;
 }
 
@@ -169,5 +205,20 @@ AudioConfig AudioGraph::getAudioConfig() const { return currentConfig_; }
 PolySynthProcessor& AudioGraph::getPolySynth() { return *polySynthPtr_; }
 BassSynthProcessor& AudioGraph::getBassSynth() { return *bassSynthPtr_; }
 DrumMachineProcessor& AudioGraph::getDrumMachine() { return *drumMachinePtr_; }
+
+InsertChainProcessor& AudioGraph::getInsertChainProcessor(const juce::String& trackId)
+{
+    if (trackId == "polysynth") return *polySynthChainPtr_;
+    if (trackId == "basssynth") return *bassSynthChainPtr_;
+    if (trackId == "drumMachine") return *drumMachineChainPtr_;
+    if (trackId == "master") return *masterChainPtr_;
+    jassertfalse; // Unknown trackId
+    return *masterChainPtr_; // fallback
+}
+
+InsertChain& AudioGraph::getInsertChain(const juce::String& trackId)
+{
+    return getInsertChainProcessor(trackId).getInsertChain();
+}
 
 } // namespace calliope

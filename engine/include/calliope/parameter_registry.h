@@ -17,6 +17,8 @@ public:
     };
 
     void registerParameter(const juce::String& id, ParameterDef def);
+    void removeParameter(const juce::String& id);
+    void removeParametersWithPrefix(const juce::String& prefix);
     const ParameterDef* getParameter(const juce::String& id) const;
     std::vector<juce::String> getAllParameterIds() const;
 

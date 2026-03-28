@@ -7,6 +7,21 @@ void ParameterRegistry::registerParameter(const juce::String& id, ParameterDef d
     params_[id] = std::move(def);
 }
 
+void ParameterRegistry::removeParameter(const juce::String& id)
+{
+    params_.erase(id);
+}
+
+void ParameterRegistry::removeParametersWithPrefix(const juce::String& prefix)
+{
+    for (auto it = params_.begin(); it != params_.end(); ) {
+        if (it->first.startsWith(prefix))
+            it = params_.erase(it);
+        else
+            ++it;
+    }
+}
+
 const ParameterRegistry::ParameterDef* ParameterRegistry::getParameter(const juce::String& id) const
 {
     auto it = params_.find(id);
