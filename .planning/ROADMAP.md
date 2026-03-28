@@ -112,11 +112,12 @@ Plans:
   3. Audio clips display waveforms and can be placed on tracks
   4. Tracks can be added, removed, reordered, renamed, and color-coded
   5. Snap-to-grid works with configurable resolution (1/4, 1/8, 1/16, 1/32 notes)
-**Plans:** 3 plans
+**Plans:** 4 plans
 Plans:
-- [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [x] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+- [ ] 06-01-PLAN.md -- Foundation: dependencies, types, Zustand store, beat-math utilities, test scaffolds
+- [ ] 06-02-PLAN.md -- Timeline layout shell, track headers, toolbar, PixiJS canvas with grid and viewport
+- [ ] 06-03-PLAN.md -- Clip rendering (MIDI/Audio with waveforms), selection box, loop region, clip operations
+- [ ] 06-04-PLAN.md -- Interaction handlers, context menus, keyboard shortcuts, engine sync, human verify
 **UI hint**: yes
 
 ### Phase 7: Piano Roll
@@ -129,11 +130,7 @@ Plans:
   3. Per-note velocity is editable via velocity lane or note color
   4. Quantize function snaps selected notes to the current grid resolution
   5. Piano roll supports scroll, zoom, and shows keyboard reference on the left edge
-**Plans:** 3 plans
-Plans:
-- [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+**Plans:** TBD
 **UI hint**: yes
 
 ### Phase 8: Mixer
@@ -145,11 +142,7 @@ Plans:
   2. Master channel strip has volume fader and insert effect chain
   3. Per-track insert chain supports add, remove, reorder, and bypass per effect
   4. Real-time level meters display signal level on each channel strip
-**Plans:** 3 plans
-Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+**Plans:** TBD
 **UI hint**: yes
 
 ### Phase 9: Project Management & Export
@@ -161,11 +154,7 @@ Plans:
   2. Autosave triggers at a configurable interval (default every 2 minutes)
   3. Final mix exports to WAV (16/24-bit), MP3 (configurable bitrate), and FLAC
   4. Individual track stems export as separate WAV files
-**Plans:** 3 plans
-Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+**Plans:** TBD
 
 ### Phase 10: Application Integration
 **Goal**: All panels unite into a cohesive DAW workspace with professional navigation, rendering, and shortcuts
@@ -176,11 +165,7 @@ Plans:
   2. Audio clip waveforms render via PixiJS/WebGL with smooth performance
   3. Transport bar shows BPM, time signature, and play/stop controls with real-time playhead position
   4. Keyboard shortcuts work for transport, undo/redo, save, and common operations
-**Plans:** 3 plans
-Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
-- [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
+**Plans:** TBD
 **UI hint**: yes
 
 ## Progress
@@ -197,7 +182,7 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 3. Command Dispatcher & State | 3/3 | Complete   | 2026-03-28 |
 | 4. Instruments | 0/3 | Planned | - |
 | 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
-| 6. Timeline & Arrangement | 0/TBD | Not started | - |
+| 6. Timeline & Arrangement | 0/4 | Planned | - |
 | 7. Piano Roll | 0/TBD | Not started | - |
 | 8. Mixer | 0/TBD | Not started | - |
 | 9. Project Management & Export | 0/TBD | Not started | - |
