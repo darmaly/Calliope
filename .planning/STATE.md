@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-28T22:17:55.073Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-28T22:23:37.233Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 07 (piano-roll) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-03-28
 
@@ -70,6 +70,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06 P02 | 322 | 2 tasks | 14 files |
 | Phase 06 P04 | 45 | 2 tasks | 11 files |
 | Phase 07 P01 | 263 | 2 tasks | 11 files |
+| Phase 07 P02 | 205 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,9 @@ Recent decisions affecting current work:
 - [Phase 07]: pitchToNoteName uses floor(pitch/12)-2 convention (MIDI note 0=C-2, 127=G8)
 - [Phase 07]: Active clip load/flush pattern between piano-roll-store and timeline-store
 - [Phase 07]: Note operations as standalone functions using store.getState() pattern
+- [Phase 07]: Shared pixi-setup import from timeline for PixiJS component registration
+- [Phase 07]: Keyboard column uses separate container ref for independent Y-only scroll
+- [Phase 07]: VelocityLane positioned via laneY prop computed from note area height
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T22:17:55.068Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-03-28T22:23:37.229Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
