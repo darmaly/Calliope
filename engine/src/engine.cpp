@@ -251,7 +251,8 @@ void Engine::setMetronomeVolume(float volume)
 
 Engine::TransportStateInfo Engine::getTransportState() const
 {
-    assert(audioGraph_ && "Engine not initialised");
+    if (!audioGraph_)
+        return TransportStateInfo{ "stopped", 120.0, 4, 4, 0, 0.0, false, 0.0, 0.0 };
     auto& t = audioGraph_->getTransport();
 
     TransportStateInfo info;

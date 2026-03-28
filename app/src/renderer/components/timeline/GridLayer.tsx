@@ -62,9 +62,9 @@ export function GridLayer({ viewportWidth, viewportHeight, scrollX }: GridLayerP
       // --- Horizontal track divider lines ---
       for (let i = 1; i <= tracks.length; i++) {
         const y = i * trackHeight
-        g.moveTo(0, y)
-        g.lineTo(Math.max(endBeat * pixelsPerBeat, viewportWidth + scrollX), y)
-        g.stroke({ width: 1, color: 0xffffff, alpha: 0.08 })
+        g.moveTo(scrollX, y)
+        g.lineTo(scrollX + viewportWidth, y)
+        g.stroke({ width: 1, color: 0xffffff, alpha: 0.2 })
       }
     },
     [pixelsPerBeat, gridResolution, timeSignature, tracks.length, viewportWidth, viewportHeight, scrollX, beatsPerBar, totalHeight]
