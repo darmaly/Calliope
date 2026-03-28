@@ -11,6 +11,8 @@ add_executable(calliope_engine_tests
     test_main.cpp
     test_transport.cpp
     test_lock_free_queue.cpp
+    test_audio_graph.cpp
+    test_metronome.cpp
 )
 
 target_link_libraries(calliope_engine_tests
