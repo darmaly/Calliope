@@ -42,6 +42,23 @@ contextBridge.exposeInMainWorld('calliope', {
   commandRedo: () => ipcRenderer.invoke('command:redo'),
   getProjectState: () => ipcRenderer.invoke('command:getState'),
   getParameterIds: () => ipcRenderer.invoke('command:getParameterIds'),
+  // Phase 4 — Instrument convenience API
+  instrumentNoteOn: (instrument: string, note: number, velocity: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'instrument.noteOn',
+      params: { instrument, note, velocity }
+    }),
+  instrumentNoteOff: (instrument: string, note: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'instrument.noteOff',
+      params: { instrument, note }
+    }),
+  drumMachineLoadSample: (padIndex: number, filePath: string) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'drumMachine.loadSample',
+      params: { padIndex, filePath }
+    }),
+
   onCommandEvent: (
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
