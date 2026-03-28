@@ -1,6 +1,7 @@
 add_library(calliope_engine STATIC
     src/engine.cpp
     src/test_tone.cpp
+    src/transport.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)
@@ -13,6 +14,7 @@ target_link_libraries(calliope_engine
         juce::juce_audio_formats
         juce::juce_events
         juce::juce_dsp
+        juce::juce_audio_processors
 )
 
 target_compile_definitions(calliope_engine
