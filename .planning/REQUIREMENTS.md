@@ -30,7 +30,7 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 - [x] **FX-03**: Algorithmic reverb with room size, damping, wet/dry, pre-delay
 - [x] **FX-04**: Tempo-synced delay with feedback, wet/dry, and ping-pong option
 - [x] **FX-05**: Brick-wall limiter on master bus for final output loudness control
-- [ ] **FX-06**: Each effect exposes all parameters via the command dispatcher interface
+- [x] **FX-06**: Each effect exposes all parameters via the command dispatcher interface
 
 ### Timeline & Arrangement
 
@@ -164,7 +164,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FX-03 | Phase 5 | Complete |
 | FX-04 | Phase 5 | Complete |
 | FX-05 | Phase 5 | Complete |
-| FX-06 | Phase 5 | Pending |
+| FX-06 | Phase 5 | Complete |
 | ENG-03 | Phase 5 | Complete |
 | TL-01 | Phase 6 | Pending |
 | TL-02 | Phase 6 | Pending |

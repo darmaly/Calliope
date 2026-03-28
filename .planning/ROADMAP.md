@@ -99,7 +99,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
-- [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
+- [x] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
 - [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 
 ### Phase 6: Timeline & Arrangement
@@ -114,7 +114,7 @@ Plans:
   5. Snap-to-grid works with configurable resolution (1/4, 1/8, 1/16, 1/32 notes)
 **Plans:** 3 plans
 Plans:
-- [ ] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
+- [x] 05-01-PLAN.md -- Effect processors (EQ, Compressor, Reverb, Delay, Limiter) and InsertChain container
 - [ ] 05-02-PLAN.md -- InsertChainProcessor routing, effect commands, parameter registration, ProjectState
 - [ ] 05-03-PLAN.md -- Bridge, IPC, preload wiring for effect operations
 **UI hint**: yes
