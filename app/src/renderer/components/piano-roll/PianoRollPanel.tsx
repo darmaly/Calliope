@@ -1,8 +1,21 @@
+import { useRef } from 'react'
 import { usePianoRollStore } from '../../stores/piano-roll-store'
+import { useTimelineStore } from '../../stores/timeline-store'
+import { useShallow } from 'zustand/shallow'
+import { TRACK_COLORS } from '../../utils/colors'
 import { PianoRollToolbar } from './PianoRollToolbar'
+import { PianoRollCanvas } from './PianoRollCanvas'
 
 export function PianoRollPanel() {
   const activeClipId = usePianoRollStore((s) => s.activeClipId)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
+
+  const { clips, tracks } = useTimelineStore(
+    useShallow((s) => ({
+      clips: s.clips,
+      tracks: s.tracks,
+    })),
+  )
 
   if (!activeClipId) {
     return (
@@ -15,11 +28,18 @@ export function PianoRollPanel() {
     )
   }
 
+  // Determine track color for the active clip
+  const clip = clips[activeClipId]
+  const track = clip ? tracks.find((t) => t.id === clip.trackId) : undefined
+  const colorIndex = track?.colorIndex ?? 0
+  const trackColorHex = TRACK_COLORS[colorIndex % TRACK_COLORS.length]
+
   return (
     <div className="h-full flex flex-col bg-[#1a1a2e]">
       <PianoRollToolbar />
-      {/* Canvas placeholder — will be replaced in Task 2 */}
-      <div className="flex-1 min-h-0 relative" />
+      <div ref={canvasContainerRef} className="flex-1 min-h-0 relative">
+        <PianoRollCanvas containerRef={canvasContainerRef} trackColorHex={trackColorHex} />
+      </div>
     </div>
   )
 }
