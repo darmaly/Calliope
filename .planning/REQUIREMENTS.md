@@ -142,61 +142,61 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENG-01 | TBD | Pending |
-| ENG-02 | TBD | Pending |
-| ENG-03 | TBD | Pending |
-| ENG-04 | TBD | Pending |
-| ENG-05 | TBD | Pending |
-| ENG-06 | TBD | Pending |
-| INST-01 | TBD | Pending |
-| INST-02 | TBD | Pending |
-| INST-03 | TBD | Pending |
-| INST-04 | TBD | Pending |
-| FX-01 | TBD | Pending |
-| FX-02 | TBD | Pending |
-| FX-03 | TBD | Pending |
-| FX-04 | TBD | Pending |
-| FX-05 | TBD | Pending |
-| FX-06 | TBD | Pending |
-| TL-01 | TBD | Pending |
-| TL-02 | TBD | Pending |
-| TL-03 | TBD | Pending |
-| TL-04 | TBD | Pending |
-| TL-05 | TBD | Pending |
-| TL-06 | TBD | Pending |
-| PR-01 | TBD | Pending |
-| PR-02 | TBD | Pending |
-| PR-03 | TBD | Pending |
-| PR-04 | TBD | Pending |
-| PR-05 | TBD | Pending |
-| MIX-01 | TBD | Pending |
-| MIX-02 | TBD | Pending |
-| MIX-03 | TBD | Pending |
-| MIX-04 | TBD | Pending |
-| PROJ-01 | TBD | Pending |
-| PROJ-02 | TBD | Pending |
-| PROJ-03 | TBD | Pending |
-| PROJ-04 | TBD | Pending |
-| PROJ-05 | TBD | Pending |
-| PROJ-06 | TBD | Pending |
-| PROJ-07 | TBD | Pending |
-| ARCH-01 | TBD | Pending |
-| ARCH-02 | TBD | Pending |
-| ARCH-03 | TBD | Pending |
-| ARCH-04 | TBD | Pending |
-| ARCH-05 | TBD | Pending |
-| ARCH-06 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| UI-05 | TBD | Pending |
+| ARCH-03 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Pending |
+| ENG-01 | Phase 2 | Pending |
+| ENG-02 | Phase 2 | Pending |
+| ENG-04 | Phase 2 | Pending |
+| ENG-05 | Phase 2 | Pending |
+| ENG-06 | Phase 2 | Pending |
+| ARCH-04 | Phase 2 | Pending |
+| ARCH-01 | Phase 3 | Pending |
+| ARCH-02 | Phase 3 | Pending |
+| ARCH-05 | Phase 3 | Pending |
+| ARCH-06 | Phase 3 | Pending |
+| PROJ-03 | Phase 3 | Pending |
+| INST-01 | Phase 4 | Pending |
+| INST-02 | Phase 4 | Pending |
+| INST-03 | Phase 4 | Pending |
+| INST-04 | Phase 4 | Pending |
+| FX-01 | Phase 5 | Pending |
+| FX-02 | Phase 5 | Pending |
+| FX-03 | Phase 5 | Pending |
+| FX-04 | Phase 5 | Pending |
+| FX-05 | Phase 5 | Pending |
+| FX-06 | Phase 5 | Pending |
+| ENG-03 | Phase 5 | Pending |
+| TL-01 | Phase 6 | Pending |
+| TL-02 | Phase 6 | Pending |
+| TL-03 | Phase 6 | Pending |
+| TL-04 | Phase 6 | Pending |
+| TL-05 | Phase 6 | Pending |
+| TL-06 | Phase 6 | Pending |
+| PR-01 | Phase 7 | Pending |
+| PR-02 | Phase 7 | Pending |
+| PR-03 | Phase 7 | Pending |
+| PR-04 | Phase 7 | Pending |
+| PR-05 | Phase 7 | Pending |
+| MIX-01 | Phase 8 | Pending |
+| MIX-02 | Phase 8 | Pending |
+| MIX-03 | Phase 8 | Pending |
+| MIX-04 | Phase 8 | Pending |
+| PROJ-01 | Phase 9 | Pending |
+| PROJ-02 | Phase 9 | Pending |
+| PROJ-04 | Phase 9 | Pending |
+| PROJ-05 | Phase 9 | Pending |
+| PROJ-06 | Phase 9 | Pending |
+| PROJ-07 | Phase 9 | Pending |
+| UI-02 | Phase 10 | Pending |
+| UI-03 | Phase 10 | Pending |
+| UI-04 | Phase 10 | Pending |
+| UI-05 | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 45 total
-- Mapped to phases: 0
-- Unmapped: 45
+- v1 requirements: 49 total
+- Mapped to phases: 49
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after initial definition*
+*Last updated: 2026-03-27 after roadmap creation*
