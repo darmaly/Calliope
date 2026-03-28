@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+out/
+dist/
+
+# Native addon binaries
+*.node
+
+# C++ build artifacts
+*.o
+*.a
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local

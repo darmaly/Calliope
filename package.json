@@ -1,0 +1,44 @@
+{
+  "name": "calliope",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:native": "cmake-js build",
+    "rebuild:native": "cmake-js rebuild",
+    "clean:native": "cmake-js clean",
+    "test": "vitest run",
+    "test:native": "vitest run test/native.test.ts",
+    "test:app": "vitest run test/app.test.ts",
+    "test:all": "vitest run"
+  },
+  "cmake-js": {
+    "runtime": "electron",
+    "runtimeVersion": "35.7.5"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "cmake-js": "8.0.0",
+    "electron": "35.7.5",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "node-addon-api": "^8.7.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "electron",
+      "esbuild"
+    ]
+  }
+}
