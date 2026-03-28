@@ -99,7 +99,47 @@ ipcMain.handle('engine:config:getAudioConfig', async () => {
   return await native.getAudioConfig()
 })
 
-app.whenReady().then(createWindow)
+// Phase 3 — Command dispatch
+ipcMain.handle(
+  'command:dispatch',
+  async (_event, cmd: { command: string; params: Record<string, unknown> }) => {
+    return await native.dispatchCommand(cmd)
+  }
+)
+
+ipcMain.handle('command:undo', async () => {
+  return await native.commandUndo()
+})
+
+ipcMain.handle('command:redo', async () => {
+  return await native.commandRedo()
+})
+
+ipcMain.handle('command:getState', async () => {
+  return await native.getProjectState()
+})
+
+ipcMain.handle('command:getParameterIds', async () => {
+  return await native.getParameterIds()
+})
+
+// Subscribe to engine events and forward to renderer windows
+let eventSubscribed = false
+function subscribeToEngineEvents(): void {
+  if (eventSubscribed) return
+  native.subscribeToEvents((event) => {
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      win.webContents.send('command:event', event)
+    }
+  })
+  eventSubscribed = true
+}
+
+app.whenReady().then(() => {
+  createWindow()
+  subscribeToEngineEvents()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
