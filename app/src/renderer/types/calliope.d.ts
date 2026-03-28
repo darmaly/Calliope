@@ -44,6 +44,28 @@ interface CalliopeAPI {
   // Phase 2 — State queries
   getTransportState(): Promise<TransportState>
   getAudioConfig(): Promise<AudioConfig>
+
+  // Phase 3 — Command dispatch
+  dispatchCommand(cmd: { command: string; params: Record<string, unknown> }): Promise<unknown>
+  commandUndo(): Promise<void>
+  commandRedo(): Promise<void>
+  getProjectState(): Promise<unknown>
+  getParameterIds(): Promise<string[]>
+
+  // Phase 4 — Instrument convenience API
+  instrumentNoteOn(instrument: string, note: number, velocity: number): Promise<unknown>
+  instrumentNoteOff(instrument: string, note: number): Promise<unknown>
+  drumMachineLoadSample(padIndex: number, filePath: string): Promise<unknown>
+
+  // Phase 5 — Effect convenience API
+  effectInsert(trackId: string, effectType: string, position?: number): Promise<unknown>
+  effectRemove(trackId: string, position: number): Promise<unknown>
+  effectReorder(trackId: string, fromPosition: number, toPosition: number): Promise<unknown>
+  effectBypass(trackId: string, position: number, bypassed: boolean): Promise<unknown>
+
+  // Event subscription
+  onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
+  removeCommandEventListener(): void
 }
 
 declare global {
