@@ -28,3 +28,12 @@ Napi::Value SetMetronomeVolume(const Napi::CallbackInfo& info);
 // Phase 2 — State queries
 Napi::Value GetTransportState(const Napi::CallbackInfo& info);
 Napi::Value GetAudioConfig(const Napi::CallbackInfo& info);
+
+// Phase 3 — Command dispatch
+Napi::Value DispatchCommand(const Napi::CallbackInfo& info);
+Napi::Value CommandUndo(const Napi::CallbackInfo& info);
+Napi::Value CommandRedo(const Napi::CallbackInfo& info);
+Napi::Value GetProjectState(const Napi::CallbackInfo& info);
+Napi::Value GetParameterIds(const Napi::CallbackInfo& info);
+Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info);
+Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info);

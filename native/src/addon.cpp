@@ -46,6 +46,22 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("getAudioConfig",
         Napi::Function::New(env, GetAudioConfig));
 
+    // Phase 3 — Command dispatch
+    exports.Set("dispatchCommand",
+        Napi::Function::New(env, DispatchCommand));
+    exports.Set("commandUndo",
+        Napi::Function::New(env, CommandUndo));
+    exports.Set("commandRedo",
+        Napi::Function::New(env, CommandRedo));
+    exports.Set("getProjectState",
+        Napi::Function::New(env, GetProjectState));
+    exports.Set("getParameterIds",
+        Napi::Function::New(env, GetParameterIds));
+    exports.Set("subscribeToEvents",
+        Napi::Function::New(env, SubscribeToEvents));
+    exports.Set("unsubscribeFromEvents",
+        Napi::Function::New(env, UnsubscribeFromEvents));
+
     return exports;
 }
 

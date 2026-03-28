@@ -50,6 +50,17 @@ interface NativeAddon {
   // Phase 2 — State queries
   getTransportState(): Promise<TransportState>
   getAudioConfig(): Promise<AudioConfig>
+
+  // Phase 3 — Command dispatch
+  dispatchCommand(cmd: { command: string; params: Record<string, unknown> }): Promise<boolean>
+  commandUndo(): Promise<boolean>
+  commandRedo(): Promise<boolean>
+  getProjectState(): Promise<string>
+  getParameterIds(): Promise<string[]>
+  subscribeToEvents(
+    callback: (event: { type: string; command: string; data: string }) => void
+  ): void
+  unsubscribeFromEvents(): void
 }
 
 function loadAddon(): NativeAddon {

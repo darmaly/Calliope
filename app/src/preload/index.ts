@@ -34,4 +34,16 @@ contextBridge.exposeInMainWorld('calliope', {
   // Phase 2 — State queries
   getTransportState: () => ipcRenderer.invoke('engine:transport:getState'),
   getAudioConfig: () => ipcRenderer.invoke('engine:config:getAudioConfig'),
+
+  // Phase 3 — Command dispatch
+  dispatchCommand: (cmd: { command: string; params: Record<string, unknown> }) =>
+    ipcRenderer.invoke('command:dispatch', cmd),
+  commandUndo: () => ipcRenderer.invoke('command:undo'),
+  commandRedo: () => ipcRenderer.invoke('command:redo'),
+  getProjectState: () => ipcRenderer.invoke('command:getState'),
+  getParameterIds: () => ipcRenderer.invoke('command:getParameterIds'),
+  onCommandEvent: (
+    callback: (event: { type: string; command: string; data: string }) => void
+  ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
+  removeCommandEventListener: () => ipcRenderer.removeAllListeners('command:event'),
 })
