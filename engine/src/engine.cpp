@@ -59,6 +59,12 @@ Transport& Engine::getTransport()
     return audioGraph_->getTransport();
 }
 
+// --- Instrument access ---
+
+PolySynthProcessor& Engine::getPolySynth() { return getAudioGraph().getPolySynth(); }
+BassSynthProcessor& Engine::getBassSynth() { return getAudioGraph().getBassSynth(); }
+DrumMachineProcessor& Engine::getDrumMachine() { return getAudioGraph().getDrumMachine(); }
+
 // --- Convenience wrappers ---
 
 void Engine::transportPlay()    { getTransport().play(); }
@@ -183,6 +189,190 @@ void Engine::registerParameters()
     paramRegistry_.registerParameter("metronome.volume", {
         [this]() -> juce::var { return getAudioGraph().getMetronome().volume.load(); },
         [this](const juce::var& v) { getAudioGraph().getMetronome().volume.store(static_cast<float>(static_cast<double>(v))); },
+        "float", 0.0, 1.0
+    });
+
+    // PolySynth parameters
+    auto& ps = getAudioGraph().getPolySynth();
+    paramRegistry_.registerParameter("polysynth.osc1Waveform", {
+        [&ps]() -> juce::var { return ps.osc1Waveform.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.osc1Waveform.store(static_cast<int>(v)); },
+        "int", 0, 3
+    });
+    paramRegistry_.registerParameter("polysynth.osc2Waveform", {
+        [&ps]() -> juce::var { return ps.osc2Waveform.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.osc2Waveform.store(static_cast<int>(v)); },
+        "int", 0, 3
+    });
+    paramRegistry_.registerParameter("polysynth.oscMix", {
+        [&ps]() -> juce::var { return ps.oscMix.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.oscMix.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.osc2Detune", {
+        [&ps]() -> juce::var { return ps.osc2Detune.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.osc2Detune.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", -100.0, 100.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterCutoff", {
+        [&ps]() -> juce::var { return ps.filterCutoff.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterCutoff.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 20.0, 20000.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterResonance", {
+        [&ps]() -> juce::var { return ps.filterResonance.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterResonance.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterEnvAmount", {
+        [&ps]() -> juce::var { return ps.filterEnvAmount.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterEnvAmount.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.ampAttack", {
+        [&ps]() -> juce::var { return ps.ampAttack.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.ampAttack.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.ampDecay", {
+        [&ps]() -> juce::var { return ps.ampDecay.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.ampDecay.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.ampSustain", {
+        [&ps]() -> juce::var { return ps.ampSustain.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.ampSustain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.ampRelease", {
+        [&ps]() -> juce::var { return ps.ampRelease.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.ampRelease.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterAttack", {
+        [&ps]() -> juce::var { return ps.filterAttack.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterAttack.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterDecay", {
+        [&ps]() -> juce::var { return ps.filterDecay.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterDecay.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterSustain", {
+        [&ps]() -> juce::var { return ps.filterSustain.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterSustain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.filterRelease", {
+        [&ps]() -> juce::var { return ps.filterRelease.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.filterRelease.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("polysynth.lfoRate", {
+        [&ps]() -> juce::var { return ps.lfoRate.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.lfoRate.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.1, 20.0
+    });
+    paramRegistry_.registerParameter("polysynth.lfoDepth", {
+        [&ps]() -> juce::var { return ps.lfoDepth.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.lfoDepth.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("polysynth.lfoTarget", {
+        [&ps]() -> juce::var { return ps.lfoTarget.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.lfoTarget.store(static_cast<int>(v)); },
+        "int", 0, 2
+    });
+    paramRegistry_.registerParameter("polysynth.masterGain", {
+        [&ps]() -> juce::var { return ps.masterGain.load(std::memory_order_relaxed); },
+        [&ps](const juce::var& v) { ps.masterGain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+
+    // BassSynth parameters
+    auto& bs = getAudioGraph().getBassSynth();
+    paramRegistry_.registerParameter("basssynth.oscWaveform", {
+        [&bs]() -> juce::var { return bs.oscWaveform.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.oscWaveform.store(static_cast<int>(v)); },
+        "int", 0, 3
+    });
+    paramRegistry_.registerParameter("basssynth.subOscMix", {
+        [&bs]() -> juce::var { return bs.subOscMix.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.subOscMix.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("basssynth.subOscOctave", {
+        [&bs]() -> juce::var { return bs.subOscOctave.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.subOscOctave.store(static_cast<int>(v)); },
+        "int", -2, -1
+    });
+    paramRegistry_.registerParameter("basssynth.filterCutoff", {
+        [&bs]() -> juce::var { return bs.filterCutoff.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterCutoff.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 20.0, 5000.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterResonance", {
+        [&bs]() -> juce::var { return bs.filterResonance.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterResonance.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterEnvAmount", {
+        [&bs]() -> juce::var { return bs.filterEnvAmount.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterEnvAmount.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("basssynth.ampAttack", {
+        [&bs]() -> juce::var { return bs.ampAttack.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.ampAttack.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.ampDecay", {
+        [&bs]() -> juce::var { return bs.ampDecay.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.ampDecay.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.ampSustain", {
+        [&bs]() -> juce::var { return bs.ampSustain.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.ampSustain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("basssynth.ampRelease", {
+        [&bs]() -> juce::var { return bs.ampRelease.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.ampRelease.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterAttack", {
+        [&bs]() -> juce::var { return bs.filterAttack.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterAttack.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterDecay", {
+        [&bs]() -> juce::var { return bs.filterDecay.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterDecay.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterSustain", {
+        [&bs]() -> juce::var { return bs.filterSustain.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterSustain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+    paramRegistry_.registerParameter("basssynth.filterRelease", {
+        [&bs]() -> juce::var { return bs.filterRelease.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.filterRelease.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.001, 10.0
+    });
+    paramRegistry_.registerParameter("basssynth.masterGain", {
+        [&bs]() -> juce::var { return bs.masterGain.load(std::memory_order_relaxed); },
+        [&bs](const juce::var& v) { bs.masterGain.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
+        "float", 0.0, 1.0
+    });
+
+    // DrumMachine parameters
+    auto& dm = getAudioGraph().getDrumMachine();
+    paramRegistry_.registerParameter("drumMachine.volume", {
+        [&dm]() -> juce::var { return dm.volume.load(std::memory_order_relaxed); },
+        [&dm](const juce::var& v) { dm.volume.store(static_cast<float>(static_cast<double>(v)), std::memory_order_relaxed); },
         "float", 0.0, 1.0
     });
 

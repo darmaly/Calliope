@@ -10,6 +10,7 @@ add_library(calliope_engine STATIC
     src/project_state.cpp
     src/commands/transport_commands.cpp
     src/commands/parameter_commands.cpp
+    src/commands/instrument_commands.cpp
     src/instruments/drum_machine.cpp
     src/instruments/poly_synth.cpp
     src/instruments/poly_synth_voice.cpp

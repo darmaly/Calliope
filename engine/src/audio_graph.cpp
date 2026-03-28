@@ -80,6 +80,29 @@ bool AudioGraph::initialise(double sampleRate, int bufferSize)
     graph_.addConnection({{metronomeNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
     graph_.addConnection({{metronomeNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
 
+    // Create PolySynthProcessor
+    auto polySynthProc = std::make_unique<PolySynthProcessor>();
+    polySynthPtr_ = polySynthProc.get();
+    polySynthNode_ = graph_.addNode(std::move(polySynthProc));
+
+    // Create BassSynthProcessor
+    auto bassSynthProc = std::make_unique<BassSynthProcessor>();
+    bassSynthPtr_ = bassSynthProc.get();
+    bassSynthNode_ = graph_.addNode(std::move(bassSynthProc));
+
+    // Create DrumMachineProcessor
+    auto drumMachineProc = std::make_unique<DrumMachineProcessor>();
+    drumMachinePtr_ = drumMachineProc.get();
+    drumMachineNode_ = graph_.addNode(std::move(drumMachineProc));
+
+    // Connect instruments -> master (stereo: channels 0 and 1)
+    graph_.addConnection({{polySynthNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{polySynthNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+    graph_.addConnection({{bassSynthNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{bassSynthNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+    graph_.addConnection({{drumMachineNode_->nodeID, 0}, {masterNode_->nodeID, 0}});
+    graph_.addConnection({{drumMachineNode_->nodeID, 1}, {masterNode_->nodeID, 1}});
+
     // Connect master -> output (stereo: channels 0 and 1)
     graph_.addConnection({{masterNode_->nodeID, 0}, {outputNode_->nodeID, 0}});
     graph_.addConnection({{masterNode_->nodeID, 1}, {outputNode_->nodeID, 1}});
@@ -118,8 +141,14 @@ void AudioGraph::shutdown()
     outputNode_ = nullptr;
     masterNode_ = nullptr;
     metronomeNode_ = nullptr;
+    polySynthNode_ = nullptr;
+    bassSynthNode_ = nullptr;
+    drumMachineNode_ = nullptr;
     masterBusPtr_ = nullptr;
     metronomePtr_ = nullptr;
+    polySynthPtr_ = nullptr;
+    bassSynthPtr_ = nullptr;
+    drumMachinePtr_ = nullptr;
     initialised_ = false;
 }
 
@@ -136,5 +165,9 @@ Transport& AudioGraph::getTransport() { return transport_; }
 MasterBusProcessor& AudioGraph::getMasterBus() { return *masterBusPtr_; }
 MetronomeProcessor& AudioGraph::getMetronome() { return *metronomePtr_; }
 AudioConfig AudioGraph::getAudioConfig() const { return currentConfig_; }
+
+PolySynthProcessor& AudioGraph::getPolySynth() { return *polySynthPtr_; }
+BassSynthProcessor& AudioGraph::getBassSynth() { return *bassSynthPtr_; }
+DrumMachineProcessor& AudioGraph::getDrumMachine() { return *drumMachinePtr_; }
 
 } // namespace calliope
