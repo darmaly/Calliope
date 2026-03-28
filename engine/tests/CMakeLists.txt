@@ -18,6 +18,8 @@ add_executable(calliope_engine_tests
     test_project_state.cpp
     test_transport_commands.cpp
     test_parameter_commands.cpp
+    test_drum_machine.cpp
+    test_poly_synth.cpp
 )
 
 target_link_libraries(calliope_engine_tests
