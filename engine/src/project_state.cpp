@@ -1,5 +1,11 @@
 #include "calliope/project_state.h"
 #include "calliope/engine.h"
+#include "calliope/insert_chain_processor.h"
+#include "calliope/effects/parametric_eq.h"
+#include "calliope/effects/compressor.h"
+#include "calliope/effects/reverb.h"
+#include "calliope/effects/delay.h"
+#include "calliope/effects/limiter.h"
 
 namespace calliope {
 
@@ -90,6 +96,25 @@ juce::String ProjectState::toJson() const
     instrumentsObj->setProperty("drumMachine", juce::var(dmObj));
 
     root->setProperty("instruments", juce::var(instrumentsObj));
+
+    // Effect chains
+    juce::Array<juce::var> chainsArray;
+    for (const auto& chainData : effectChains) {
+        auto* chainObj = new juce::DynamicObject();
+        chainObj->setProperty("trackId", chainData.trackId);
+
+        juce::Array<juce::var> effectsArray;
+        for (const auto& slot : chainData.effects) {
+            auto* slotObj = new juce::DynamicObject();
+            slotObj->setProperty("effectType", slot.effectType);
+            slotObj->setProperty("bypassed", slot.bypassed);
+            slotObj->setProperty("parameters", slot.parameters);
+            effectsArray.add(juce::var(slotObj));
+        }
+        chainObj->setProperty("effects", juce::var(effectsArray));
+        chainsArray.add(juce::var(chainObj));
+    }
+    root->setProperty("effectChains", juce::var(chainsArray));
 
     return juce::JSON::toString(juce::var(root));
 }
@@ -204,6 +229,31 @@ bool ProjectState::fromJson(const juce::String& jsonString)
         }
     }
 
+    // Effect chains
+    effectChains.clear();
+    auto chainsVar = root->getProperty("effectChains");
+    if (auto* chainsArray = chainsVar.getArray()) {
+        for (const auto& chainVar : *chainsArray) {
+            if (auto* chainObj = chainVar.getDynamicObject()) {
+                InsertChainData chainData;
+                chainData.trackId = chainObj->getProperty("trackId").toString();
+                auto effectsVar = chainObj->getProperty("effects");
+                if (auto* effectsArray = effectsVar.getArray()) {
+                    for (const auto& slotVar : *effectsArray) {
+                        if (auto* slotObj = slotVar.getDynamicObject()) {
+                            EffectSlotData slot;
+                            slot.effectType = slotObj->getProperty("effectType").toString();
+                            slot.bypassed = static_cast<bool>(slotObj->getProperty("bypassed"));
+                            slot.parameters = slotObj->getProperty("parameters");
+                            chainData.effects.push_back(std::move(slot));
+                        }
+                    }
+                }
+                effectChains.push_back(std::move(chainData));
+            }
+        }
+    }
+
     return true;
 }
 
@@ -275,6 +325,66 @@ void ProjectState::snapshotFromEngine(const Engine& engine)
     auto names = dm.getSampleNames();
     for (const auto& n : names)
         drumMachine.padNames.push_back(n);
+
+    // Effect chains
+    effectChains.clear();
+    const juce::String trackIds[] = { "polysynth", "basssynth", "drumMachine", "master" };
+    for (const auto& tid : trackIds) {
+        InsertChainData chainData;
+        chainData.trackId = tid;
+
+        auto& chain = graph.getInsertChain(tid);
+        int numEffects = chain.getNumEffects();
+        for (int i = 0; i < numEffects; ++i) {
+            EffectSlotData slot;
+            auto* effect = chain.getEffect(i);
+            if (!effect) continue;
+
+            slot.effectType = effect->getName();
+            slot.bypassed = chain.isBypassed(i);
+
+            // Capture parameters as JSON object
+            auto* paramsObj = new juce::DynamicObject();
+
+            if (auto* eq = dynamic_cast<ParametricEqProcessor*>(effect)) {
+                for (int b = 0; b < 4; ++b) {
+                    juce::String bp = "band" + juce::String(b) + ".";
+                    paramsObj->setProperty(bp + "frequency", static_cast<double>(eq->bands[b].frequency.load()));
+                    paramsObj->setProperty(bp + "q", static_cast<double>(eq->bands[b].q.load()));
+                    paramsObj->setProperty(bp + "gainDb", static_cast<double>(eq->bands[b].gainDb.load()));
+                    paramsObj->setProperty(bp + "enabled", eq->bands[b].enabled.load());
+                }
+            }
+            else if (auto* comp = dynamic_cast<CompressorProcessor*>(effect)) {
+                paramsObj->setProperty("threshold", static_cast<double>(comp->threshold.load()));
+                paramsObj->setProperty("ratio", static_cast<double>(comp->ratio.load()));
+                paramsObj->setProperty("attack", static_cast<double>(comp->attack.load()));
+                paramsObj->setProperty("release", static_cast<double>(comp->release.load()));
+                paramsObj->setProperty("makeupGain", static_cast<double>(comp->makeupGain.load()));
+            }
+            else if (auto* reverb = dynamic_cast<ReverbProcessor*>(effect)) {
+                paramsObj->setProperty("roomSize", static_cast<double>(reverb->roomSize.load()));
+                paramsObj->setProperty("damping", static_cast<double>(reverb->damping.load()));
+                paramsObj->setProperty("wetLevel", static_cast<double>(reverb->wetLevel.load()));
+                paramsObj->setProperty("dryLevel", static_cast<double>(reverb->dryLevel.load()));
+                paramsObj->setProperty("preDelay", static_cast<double>(reverb->preDelay.load()));
+            }
+            else if (auto* delay = dynamic_cast<DelayProcessor*>(effect)) {
+                paramsObj->setProperty("feedback", static_cast<double>(delay->feedback.load()));
+                paramsObj->setProperty("wetDry", static_cast<double>(delay->wetDry.load()));
+                paramsObj->setProperty("syncNoteValue", static_cast<double>(delay->syncNoteValue.load()));
+                paramsObj->setProperty("pingPongEnabled", delay->pingPongEnabled.load());
+            }
+            else if (auto* lim = dynamic_cast<LimiterProcessor*>(effect)) {
+                paramsObj->setProperty("threshold", static_cast<double>(lim->threshold.load()));
+                paramsObj->setProperty("release", static_cast<double>(lim->release.load()));
+            }
+
+            slot.parameters = juce::var(paramsObj);
+            chainData.effects.push_back(std::move(slot));
+        }
+        effectChains.push_back(std::move(chainData));
+    }
 }
 
 } // namespace calliope

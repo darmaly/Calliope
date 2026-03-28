@@ -77,6 +77,17 @@ public:
         std::vector<juce::String> padNames;
     };
 
+    struct EffectSlotData {
+        juce::String effectType;
+        bool bypassed = false;
+        juce::var parameters;  // JSON object with parameter key-value pairs
+    };
+
+    struct InsertChainData {
+        juce::String trackId;
+        std::vector<EffectSlotData> effects;
+    };
+
     TransportData transport;
     MetronomeData metronome;
     MasterBusData masterBus;
@@ -84,6 +95,7 @@ public:
     PolySynthData polySynth;
     BassSynthData bassSynth;
     DrumMachineData drumMachine;
+    std::vector<InsertChainData> effectChains;
 
     // Serialize to JSON string
     juce::String toJson() const;
