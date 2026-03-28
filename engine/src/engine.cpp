@@ -1,4 +1,5 @@
 #include "calliope/engine.h"
+#include "calliope/project_state.h"
 #include <juce_core/juce_core.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <cassert>
@@ -24,7 +25,11 @@ Engine::~Engine()
 bool Engine::initialise(double sampleRate, int bufferSize)
 {
     audioGraph_ = std::make_unique<AudioGraph>();
-    return audioGraph_->initialise(sampleRate, bufferSize);
+    bool ok = audioGraph_->initialise(sampleRate, bufferSize);
+    if (ok) {
+        registerParameters();
+    }
+    return ok;
 }
 
 void Engine::shutdown()
@@ -126,6 +131,67 @@ Engine::AudioConfigInfo Engine::getAudioConfig() const
         info.initialised = false;
     }
     return info;
+}
+
+// --- Command dispatcher and parameter registry ---
+
+CommandDispatcher& Engine::getCommandDispatcher()
+{
+    return dispatcher_;
+}
+
+ParameterRegistry& Engine::getParameterRegistry()
+{
+    return paramRegistry_;
+}
+
+ProjectState Engine::getProjectState() const
+{
+    ProjectState state;
+    state.snapshotFromEngine(*this);
+    return state;
+}
+
+void Engine::registerParameters()
+{
+    // Transport parameters
+    paramRegistry_.registerParameter("transport.bpm", {
+        [this]() -> juce::var { return getTransport().getBpm(); },
+        [this](const juce::var& v) { getTransport().setBpm(static_cast<double>(v)); },
+        "double", 20.0, 999.0
+    });
+
+    paramRegistry_.registerParameter("transport.timeSigNumerator", {
+        [this]() -> juce::var { return getTransport().getTimeSignatureNumerator(); },
+        [this](const juce::var& v) { getTransport().setTimeSignature(static_cast<int>(v), getTransport().getTimeSignatureDenominator()); },
+        "int", 1, 32
+    });
+
+    paramRegistry_.registerParameter("transport.timeSigDenominator", {
+        [this]() -> juce::var { return getTransport().getTimeSignatureDenominator(); },
+        [this](const juce::var& v) { getTransport().setTimeSignature(getTransport().getTimeSignatureNumerator(), static_cast<int>(v)); },
+        "int", 1, 32
+    });
+
+    // Metronome parameters
+    paramRegistry_.registerParameter("metronome.enabled", {
+        [this]() -> juce::var { return getAudioGraph().getMetronome().enabled.load(); },
+        [this](const juce::var& v) { getAudioGraph().getMetronome().enabled.store(static_cast<bool>(v)); },
+        "bool", false, true
+    });
+
+    paramRegistry_.registerParameter("metronome.volume", {
+        [this]() -> juce::var { return getAudioGraph().getMetronome().volume.load(); },
+        [this](const juce::var& v) { getAudioGraph().getMetronome().volume.store(static_cast<float>(static_cast<double>(v))); },
+        "float", 0.0, 1.0
+    });
+
+    // Master bus parameters
+    paramRegistry_.registerParameter("master.volume", {
+        [this]() -> juce::var { return getAudioGraph().getMasterBus().masterVolume.load(); },
+        [this](const juce::var& v) { getAudioGraph().getMasterBus().masterVolume.store(static_cast<float>(static_cast<double>(v))); },
+        "float", 0.0, 2.0
+    });
 }
 
 // --- Static methods (preserved from Phase 1) ---
