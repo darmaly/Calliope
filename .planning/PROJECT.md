@@ -12,12 +12,12 @@ A person with a musical vision but no DAW experience can go from an empty projec
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Electron-based application shell with cross-platform support (macOS, Windows, Linux) — Validated in Phase 1: Build System & App Shell
+- [x] Native bridge (node-addon-api) connects C++ audio engine to Electron/Node.js layer — Validated in Phase 1: Build System & App Shell
 
 ### Active
 
 - [ ] Hybrid audio engine (C++/JUCE) with real-time DSP, synthesis, effects processing, and MIDI
-- [ ] Electron-based application shell with cross-platform support (macOS, Windows, Linux)
 - [ ] AI agent integration layer (BYOK — user provides their own API key for Claude, GPT, etc.)
 - [ ] AI has full DAW access — sound design, composition, arrangement, mixing, mastering
 - [ ] Natural language interface for all DAW operations (chat-based interaction)
@@ -89,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after initialization*
+*Last updated: 2026-03-28 after Phase 1 completion*
