@@ -223,6 +223,81 @@ ipcMain.handle('project:markDirty', async () => {
   projectDirty = true
 })
 
+// Phase 9 — Export
+ipcMain.handle(
+  'project:export',
+  async (_event, params: {
+    outputPath: string
+    format: string
+    mp3Bitrate: number
+    totalBeats: number
+    midiEventsJson: string
+  }) => {
+    return await native.exportAudio(
+      params.outputPath,
+      params.format,
+      params.mp3Bitrate,
+      params.totalBeats,
+      params.midiEventsJson,
+      (percent: number) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          win.webContents.send('project:exportProgress', percent)
+        }
+      }
+    )
+  }
+)
+
+ipcMain.handle(
+  'project:exportStems',
+  async (_event, params: {
+    outputDir: string
+    totalBeats: number
+    midiEventsJson: string
+  }) => {
+    return await native.exportStems(
+      params.outputDir,
+      params.totalBeats,
+      params.midiEventsJson,
+      (percent: number) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          win.webContents.send('project:exportProgress', percent)
+        }
+      }
+    )
+  }
+)
+
+ipcMain.handle(
+  'project:loadState',
+  async (_event, jsonString: string) => {
+    return await native.loadProjectState(jsonString)
+  }
+)
+
+// Phase 9 — Browse export path dialog
+const EXPORT_FILTERS: Record<string, Electron.FileFilter[]> = {
+  wav16: [{ name: 'WAV Audio (16-bit)', extensions: ['wav'] }],
+  wav24: [{ name: 'WAV Audio (24-bit)', extensions: ['wav'] }],
+  mp3: [{ name: 'MP3 Audio', extensions: ['mp3'] }],
+  flac: [{ name: 'FLAC Audio', extensions: ['flac'] }],
+}
+
+ipcMain.handle('project:browseExportPath', async (_event, format: string) => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (!win) return null
+  const filters = EXPORT_FILTERS[format] ?? [{ name: 'Audio Files', extensions: ['wav', 'mp3', 'flac'] }]
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Export Audio',
+    filters,
+    defaultPath: `export.${filters[0]?.extensions[0] ?? 'wav'}`,
+  })
+  if (result.canceled || !result.filePath) return null
+  return result.filePath
+})
+
 function restartAutosaveTimer(): void {
   if (autosaveTimer) {
     clearInterval(autosaveTimer)
