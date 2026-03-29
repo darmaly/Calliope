@@ -85,4 +85,19 @@ contextBridge.exposeInMainWorld('calliope', {
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
   removeCommandEventListener: () => ipcRenderer.removeAllListeners('command:event'),
+
+  // Phase 9 — Project save/load
+  projectSave: (filePath?: string) => ipcRenderer.invoke('project:save', filePath),
+  projectSaveAs: () => ipcRenderer.invoke('project:saveAs'),
+  projectLoad: () => ipcRenderer.invoke('project:load'),
+  projectNew: () => ipcRenderer.invoke('project:new'),
+  projectGetInfo: () => ipcRenderer.invoke('project:getInfo'),
+  projectSetAutosave: (enabled: boolean, intervalMs?: number) =>
+    ipcRenderer.invoke('project:setAutosave', enabled, intervalMs),
+  projectGetAutosaveConfig: () => ipcRenderer.invoke('project:getAutosaveConfig'),
+  projectMarkDirty: () => ipcRenderer.invoke('project:markDirty'),
+  onProjectAutosaved: (
+    callback: (data: { filePath: string; timestamp: string }) => void
+  ) => ipcRenderer.on('project:autosaved', (_event, data) => callback(data)),
+  removeProjectAutosavedListener: () => ipcRenderer.removeAllListeners('project:autosaved'),
 })

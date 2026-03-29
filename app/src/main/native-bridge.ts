@@ -70,6 +70,10 @@ interface NativeAddon {
     callback: (event: { type: string; command: string; data: string }) => void
   ): void
   unsubscribeFromEvents(): void
+
+  // Phase 9 — Project save/load
+  saveProject(filePath: string): Promise<boolean>
+  loadProject(filePath: string): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {

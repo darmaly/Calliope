@@ -66,6 +66,18 @@ interface CalliopeAPI {
   // Event subscription
   onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
   removeCommandEventListener(): void
+
+  // Phase 9 — Project save/load
+  projectSave(filePath?: string): Promise<{ success: boolean; filePath: string | null }>
+  projectSaveAs(): Promise<{ success: boolean; filePath: string | null }>
+  projectLoad(): Promise<{ success: boolean; filePath: string | null }>
+  projectNew(): Promise<{ success: boolean }>
+  projectGetInfo(): Promise<{ filePath: string | null; isDirty: boolean }>
+  projectSetAutosave(enabled: boolean, intervalMs?: number): Promise<{ autosaveEnabled: boolean; autosaveIntervalMs: number }>
+  projectGetAutosaveConfig(): Promise<{ autosaveEnabled: boolean; autosaveIntervalMs: number }>
+  projectMarkDirty(): Promise<void>
+  onProjectAutosaved(callback: (data: { filePath: string; timestamp: string }) => void): void
+  removeProjectAutosavedListener(): void
 }
 
 declare global {
