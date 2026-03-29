@@ -209,15 +209,15 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
         </pixiContainer>
       </pixiContainer>
 
-      {/* Velocity lane — scrolls horizontally only */}
-      {velocityLaneVisible && (
-        <pixiContainer x={-scrollX + KEYBOARD_WIDTH} y={0}>
+      {/* Velocity lane — scrolls horizontally only, fixed vertical position */}
+      {velocityLaneVisible && noteAreaHeight > 0 && velocityLaneHeight > 0 && (
+        <pixiContainer x={-scrollX + KEYBOARD_WIDTH} y={noteAreaHeight}>
           <VelocityLane
             viewportWidth={size.width - KEYBOARD_WIDTH}
             laneHeight={velocityLaneHeight}
             scrollX={scrollX}
             trackColorHex={trackColorHex}
-            laneY={noteAreaHeight}
+            laneY={0}
           />
         </pixiContainer>
       )}
