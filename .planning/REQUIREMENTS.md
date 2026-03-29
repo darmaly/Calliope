@@ -58,8 +58,8 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Project Management
 
-- [ ] **PROJ-01**: Project save to file and load from file with full state restoration
-- [ ] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
+- [x] **PROJ-01**: Project save to file and load from file with full state restoration
+- [x] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
 - [x] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
 - [ ] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
 - [ ] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
@@ -181,8 +181,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MIX-02 | Phase 8 | Pending |
 | MIX-03 | Phase 8 | Pending |
 | MIX-04 | Phase 8 | Pending |
-| PROJ-01 | Phase 9 | Pending |
-| PROJ-02 | Phase 9 | Pending |
+| PROJ-01 | Phase 9 | Complete |
+| PROJ-02 | Phase 9 | Complete |
 | PROJ-04 | Phase 9 | Pending |
 | PROJ-05 | Phase 9 | Pending |
 | PROJ-06 | Phase 9 | Pending |

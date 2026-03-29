@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 9
+Plan: 1 of TBD
+Status: Plan 09-01 complete
 Last activity: 2026-03-29
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 07 P01 | 263 | 2 tasks | 11 files |
 | Phase 07 P02 | 205 | 2 tasks | 10 files |
 | Phase 07 P03 | 256 | 2 tasks | 5 files |
+| Phase 09 P01 | 312 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,10 @@ Recent decisions affecting current work:
 - [Phase 07]: Capture-phase keydown listener with stopImmediatePropagation for piano roll shortcut priority over timeline
 - [Phase 07]: Double-click detection via ref-tracked timestamp/position in handlePointerUp for pointer-events-only interaction model
 - [Phase 07]: Original-position tracking in drag state for drift-free note move operations
+- [Phase 09]: Versioned JSON envelope format {version, appVersion, savedAt, data} for forward-compatible project files
+- [Phase 09]: .ltproj file extension for LuneyTunes project files
+- [Phase 09]: Main-process autosave timer (not renderer) for reliability
+- [Phase 09]: ParameterRegistry setter pattern for state restoration on project load
 
 ### Pending Todos
 
@@ -146,6 +151,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-29T18:11:40.066Z
-Stopped at: Phase 8 smart discuss - grey area proposals pending user acceptance
+Last session: 2026-03-29T22:29:45Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: .planning/ROADMAP.md
