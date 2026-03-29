@@ -83,6 +83,26 @@ interface CalliopeAPI {
   projectMarkDirty(): Promise<void>
   onProjectAutosaved(callback: (data: { filePath: string; timestamp: string }) => void): void
   removeProjectAutosavedListener(): void
+
+  // Phase 9 — Export
+  exportAudio(params: {
+    outputPath: string
+    format: string
+    mp3Bitrate: number
+    totalBeats: number
+    midiEventsJson: string
+  }): Promise<boolean>
+  exportStems(params: {
+    outputDir: string
+    totalBeats: number
+    midiEventsJson: string
+  }): Promise<boolean>
+  loadProjectState(json: string): Promise<boolean>
+  onExportProgress(callback: (percent: number) => void): void
+  removeExportProgressListener(): void
+  showExportPathDialog(format: string): Promise<string | null>
+  onShowExportDialog(callback: () => void): void
+  removeShowExportDialogListener(): void
 }
 
 declare global {
