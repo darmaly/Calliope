@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { Grid3x3 } from 'lucide-react'
 import { usePianoRollStore } from '../../stores/piano-roll-store'
 import { useTimelineStore } from '../../stores/timeline-store'
@@ -6,12 +7,15 @@ import { GridResolutionSelect } from '../shared/GridResolutionSelect'
 import { quantizeSelectedNotes } from '../../utils/note-operations'
 
 export function PianoRollToolbar() {
-  const { activeClipId, velocityLaneVisible } = usePianoRollStore(
+  const { activeClipId, velocityLaneVisible, selectedNoteIds } = usePianoRollStore(
     useShallow((s) => ({
       activeClipId: s.activeClipId,
       velocityLaneVisible: s.velocityLaneVisible,
+      selectedNoteIds: s.selectedNoteIds,
     })),
   )
+
+  const [toast, setToast] = useState<string | null>(null)
 
   const clips = useTimelineStore((s) => s.clips)
   const clipName = activeClipId ? clips[activeClipId]?.name ?? 'Untitled Clip' : ''
@@ -20,12 +24,22 @@ export function PianoRollToolbar() {
     usePianoRollStore.getState().toggleVelocityLane()
   }
 
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2000)
+  }, [])
+
   const handleQuantize = () => {
+    if (selectedNoteIds.size === 0) {
+      showToast('Select notes to quantize')
+      return
+    }
     quantizeSelectedNotes()
+    showToast(`Quantized ${selectedNoteIds.size} note${selectedNoteIds.size > 1 ? 's' : ''}`)
   }
 
   return (
-    <div className="h-[36px] flex items-center gap-3 px-3 bg-[#252542] border-b border-[#3a3a5a] shrink-0">
+    <div className="h-[36px] flex items-center gap-3 px-3 bg-[#252542] border-b border-[#3a3a5a] shrink-0 relative">
       {/* Label */}
       <span className="text-[13px] font-medium text-[#eeeeee] select-none">Piano Roll</span>
 
@@ -63,6 +77,13 @@ export function PianoRollToolbar() {
 
       {/* Grid resolution */}
       <GridResolutionSelect />
+
+      {/* Toast notification */}
+      {toast && (
+        <span className="absolute top-[40px] right-3 bg-[#252542] border border-[#3a3a5a] rounded px-3 py-1 text-[10px] text-[#eeeeee] z-20 animate-pulse">
+          {toast}
+        </span>
+      )}
     </div>
   )
 }
