@@ -23,11 +23,13 @@ A person with a musical vision but no DAW experience can go from an empty projec
 
 - [x] Multi-track timeline with clip creation, editing, and grid snapping — Validated in Phase 6: Timeline & Arrangement
 
+- [x] Piano roll MIDI editor with note drawing, selection, velocity control, and quantization — Validated in Phase 7: Piano Roll
+
 ### Active
 - [ ] AI agent integration layer (BYOK — user provides their own API key for Claude, GPT, etc.)
 - [ ] AI has full DAW access — sound design, composition, arrangement, mixing, mastering
 - [ ] Natural language interface for all DAW operations (chat-based interaction)
-- [ ] Piano roll editor with AI-driven MIDI note writing
+- [x] Piano roll editor with note drawing, velocity, and quantization — Validated in Phase 7: Piano Roll
 - [ ] Timeline/arrangement view with track management
 - [ ] Mixer with per-track controls (volume, pan, sends)
 - [ ] Built-in synthesizers and sample-based instruments
