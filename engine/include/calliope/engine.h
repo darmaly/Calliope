@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "calliope/audio_graph.h"
+#include "calliope/audio_exporter.h"
 #include "calliope/command_dispatcher.h"
 #include "calliope/parameter_registry.h"
 #include "calliope/project_state.h"
@@ -61,6 +62,9 @@ public:
     void setMetronomeEnabled(bool enabled);
     void setMetronomeVolume(float volume);
 
+    // Audio export (Phase 9)
+    AudioExporter& getAudioExporter();
+
     // Command dispatcher and parameter registry
     CommandDispatcher& getCommandDispatcher();
     ParameterRegistry& getParameterRegistry();
@@ -92,6 +96,7 @@ private:
     ~Engine();
 
     std::unique_ptr<AudioGraph> audioGraph_;
+    std::unique_ptr<AudioExporter> audioExporter_;
     CommandDispatcher dispatcher_;
     ParameterRegistry paramRegistry_;
 

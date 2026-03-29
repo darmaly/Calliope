@@ -1,4 +1,5 @@
 #include "calliope/engine.h"
+#include "calliope/audio_exporter.h"
 #include "calliope/project_state.h"
 #include "calliope/effects/parametric_eq.h"
 #include "calliope/effects/compressor.h"
@@ -32,6 +33,7 @@ bool Engine::initialise(double sampleRate, int bufferSize)
     audioGraph_ = std::make_unique<AudioGraph>();
     bool ok = audioGraph_->initialise(sampleRate, bufferSize);
     if (ok) {
+        audioExporter_ = std::make_unique<AudioExporter>(*this);
         registerParameters();
     }
     return ok;
@@ -39,6 +41,7 @@ bool Engine::initialise(double sampleRate, int bufferSize)
 
 void Engine::shutdown()
 {
+    audioExporter_.reset();
     if (audioGraph_) {
         audioGraph_->shutdown();
         audioGraph_.reset();
@@ -62,6 +65,14 @@ Transport& Engine::getTransport()
 {
     assert(audioGraph_ && "Engine not initialised");
     return audioGraph_->getTransport();
+}
+
+// --- Audio exporter ---
+
+AudioExporter& Engine::getAudioExporter()
+{
+    assert(audioExporter_ && "Engine not initialised");
+    return *audioExporter_;
 }
 
 // --- Instrument access ---
