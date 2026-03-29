@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { TimelineView } from './components/timeline/TimelineView'
 import { SplitDivider } from './components/piano-roll/SplitDivider'
 import { PianoRollPanel } from './components/piano-roll/PianoRollPanel'
+import { MixerView } from './components/mixer/MixerView'
 import { usePianoRollStore } from './stores/piano-roll-store'
+import { useMixerStore } from './stores/mixer-store'
 import './App.css'
 
 export default function App() {
@@ -11,6 +13,7 @@ export default function App() {
   const activeClipId = usePianoRollStore((s) => s.activeClipId)
   const collapsed = panelHeight <= 36
   const showPianoRoll = activeClipId !== null
+  const mixerVisible = useMixerStore((s) => s.mixerVisible)
 
   useEffect(() => {
     window.calliope.getEngineInfo()
@@ -43,6 +46,8 @@ export default function App() {
           </div>
         </>
       )}
+      {/* Mixer panel */}
+      {mixerVisible && <MixerView />}
       {/* Engine status indicator */}
       <div className="absolute bottom-1 right-2 text-[10px] text-[#666666] pointer-events-none select-none">
         Engine: {engineStatus}

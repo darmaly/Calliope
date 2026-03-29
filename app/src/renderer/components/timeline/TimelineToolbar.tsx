@@ -1,6 +1,7 @@
-import { ZoomIn, ZoomOut, Piano } from 'lucide-react'
+import { ZoomIn, ZoomOut, Piano, SlidersHorizontal } from 'lucide-react'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { usePianoRollStore } from '../../stores/piano-roll-store'
+import { useMixerStore } from '../../stores/mixer-store'
 import { useShallow } from 'zustand/shallow'
 import { GridResolutionSelect } from '../shared/GridResolutionSelect'
 
@@ -92,6 +93,20 @@ export function TimelineToolbar() {
       >
         <Piano size={16} />
         Piano Roll
+      </button>
+
+      {/* Mixer toggle */}
+      <button
+        onClick={() => useMixerStore.getState().toggleMixerVisible()}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-[13px] transition-colors ${
+          useMixerStore.getState().mixerVisible
+            ? 'text-[#6c63ff] underline'
+            : 'text-[#999999] hover:text-[#eeeeee] hover:bg-[#3a3a5a]'
+        }`}
+        title="Toggle Mixer"
+      >
+        <SlidersHorizontal size={16} />
+        Mixer
       </button>
     </div>
   )
