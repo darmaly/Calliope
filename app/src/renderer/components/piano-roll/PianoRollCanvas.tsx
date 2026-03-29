@@ -518,6 +518,9 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
   const handleContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault()
+      // Suppress context menu on Ctrl+click (used for box select / toggle select)
+      if (e.ctrlKey || e.metaKey) return
+
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top

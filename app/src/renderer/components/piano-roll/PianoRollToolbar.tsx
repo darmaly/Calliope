@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Grid3x3 } from 'lucide-react'
+import { Grid3x3, ZoomIn, ZoomOut } from 'lucide-react'
 import { usePianoRollStore } from '../../stores/piano-roll-store'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useShallow } from 'zustand/shallow'
@@ -73,6 +73,28 @@ export function PianoRollToolbar() {
       >
         <Grid3x3 size={16} />
         Quantize
+      </button>
+
+      {/* Vertical zoom buttons */}
+      <button
+        onClick={() => {
+          const h = usePianoRollStore.getState().noteRowHeight
+          usePianoRollStore.getState().setNoteRowHeight(Math.min(48, Math.round(h * 1.3)))
+        }}
+        className="p-1 rounded text-[#999999] hover:bg-[#3a3a5a] transition-colors"
+        title="Zoom in vertically (Ctrl+Shift+Scroll Up)"
+      >
+        <ZoomIn size={16} />
+      </button>
+      <button
+        onClick={() => {
+          const h = usePianoRollStore.getState().noteRowHeight
+          usePianoRollStore.getState().setNoteRowHeight(Math.max(4, Math.round(h / 1.3)))
+        }}
+        className="p-1 rounded text-[#999999] hover:bg-[#3a3a5a] transition-colors"
+        title="Zoom out vertically (Ctrl+Shift+Scroll Down)"
+      >
+        <ZoomOut size={16} />
       </button>
 
       {/* Grid resolution */}

@@ -85,15 +85,19 @@ function CanvasContent({ containerRef }: TimelineCanvasProps) {
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (entry) {
-        setSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        })
+        const w = entry.contentRect.width
+        const h = entry.contentRect.height
+        setSize({ width: w, height: h })
+        // Force PixiJS renderer to resize to match container
+        const pixiApp = (app as any)?.app ?? app
+        if (pixiApp?.renderer) {
+          pixiApp.renderer.resize(w, h)
+        }
       }
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [containerRef])
+  }, [containerRef, app])
 
   const worldHeight = Math.max(tracks.length * TRACK_HEIGHT, size.height)
 
