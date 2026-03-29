@@ -105,11 +105,11 @@ describe('piano-roll-store', () => {
       expect(usePianoRollStore.getState().noteRowHeight).toBe(24)
     })
 
-    it('setNoteRowHeight clamps to 8-32', () => {
-      usePianoRollStore.getState().setNoteRowHeight(4)
-      expect(usePianoRollStore.getState().noteRowHeight).toBe(8)
+    it('setNoteRowHeight clamps to 4-48', () => {
+      usePianoRollStore.getState().setNoteRowHeight(2)
+      expect(usePianoRollStore.getState().noteRowHeight).toBe(4)
       usePianoRollStore.getState().setNoteRowHeight(64)
-      expect(usePianoRollStore.getState().noteRowHeight).toBe(32)
+      expect(usePianoRollStore.getState().noteRowHeight).toBe(48)
     })
   })
 

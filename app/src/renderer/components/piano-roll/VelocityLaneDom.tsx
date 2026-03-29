@@ -161,8 +161,14 @@ export function VelocityLaneDom({ height, trackColorHex }: VelocityLaneDomProps)
       const barHeight = (note.velocity / 127) * usableHeight
       const barY = height - barHeight
 
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`
-      ctx.fillRect(x, barY, barWidth, barHeight)
+      // Bar fill
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`
+      ctx.fillRect(x + 1, barY, barWidth - 2, barHeight)
+
+      // Bar border for visual distinction
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 1.0)`
+      ctx.lineWidth = 1
+      ctx.strokeRect(x + 0.5, barY + 0.5, barWidth - 1, barHeight - 1)
     }
   }, [notes, scrollX, pixelsPerBeat, height, trackColorHex])
 

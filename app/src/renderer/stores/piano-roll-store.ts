@@ -13,7 +13,7 @@ export const usePianoRollStore = create<PianoRollState & PianoRollActions>((set,
   scrollX: 0,
   scrollY: 1072, // Centered around C4: (127 - 60) * 16
   velocityLaneVisible: false,
-  velocityLaneHeight: 80,
+  velocityLaneHeight: 120,
   panelHeight: 300,
   clipboard: [],
 
@@ -81,7 +81,7 @@ export const usePianoRollStore = create<PianoRollState & PianoRollActions>((set,
   setScrollX: (x: number) => set(() => ({ scrollX: Math.max(0, x) })),
   setScrollY: (y: number) => set(() => ({ scrollY: Math.max(0, y) })),
   setNoteRowHeight: (h: number) =>
-    set(() => ({ noteRowHeight: Math.max(8, Math.min(32, h)) })),
+    set(() => ({ noteRowHeight: Math.max(4, Math.min(48, h)) })),
 
   // Velocity lane
   toggleVelocityLane: () =>
