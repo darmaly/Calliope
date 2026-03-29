@@ -38,8 +38,8 @@ A person with a musical vision but no DAW experience can go from an empty projec
 - [ ] Built-in effects (EQ, compression, reverb, delay, stereo imaging, limiter)
 - [ ] Sound/preset selection and browsing system
 - [ ] AI-assisted mixing and mastering chain
-- [ ] Export to WAV, MP3, FLAC, and individual stems
-- [ ] Project save/load
+- [x] Export to WAV, MP3, FLAC, and individual stems — Validated in Phase 9: Project Management & Export
+- [x] Project save/load — Validated in Phase 9: Project Management & Export
 
 ### Out of Scope
 
