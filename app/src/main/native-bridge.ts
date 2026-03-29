@@ -74,6 +74,23 @@ interface NativeAddon {
   // Phase 9 — Project save/load
   saveProject(filePath: string): Promise<boolean>
   loadProject(filePath: string): Promise<boolean>
+
+  // Phase 9 — Export
+  exportAudio(
+    outputPath: string,
+    format: string,
+    mp3Bitrate: number,
+    totalBeats: number,
+    midiEventsJson: string,
+    onProgress?: (percent: number) => void
+  ): Promise<boolean>
+  exportStems(
+    outputDir: string,
+    totalBeats: number,
+    midiEventsJson: string,
+    onProgress?: (percent: number) => void
+  ): Promise<boolean>
+  loadProjectState(jsonString: string): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {

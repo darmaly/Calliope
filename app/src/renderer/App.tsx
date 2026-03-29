@@ -3,8 +3,12 @@ import { TimelineView } from './components/timeline/TimelineView'
 import { SplitDivider } from './components/piano-roll/SplitDivider'
 import { PianoRollPanel } from './components/piano-roll/PianoRollPanel'
 import { MixerPanel } from './components/mixer/MixerPanel'
+import { ExportDialog } from './components/export/ExportDialog'
+import { ExportProgress } from './components/export/ExportProgress'
+import { Toast } from './components/shared/Toast'
 import { usePianoRollStore } from './stores/piano-roll-store'
 import { useMixerStore } from './stores/mixer-store'
+import { useProjectStore } from './stores/project-store'
 import './App.css'
 
 export default function App() {
@@ -15,12 +19,27 @@ export default function App() {
   const showPianoRoll = activeClipId !== null
   const showMixer = useMixerStore((s) => s.mixerVisible)
   const mixerHeight = useMixerStore((s) => s.mixerHeight)
+  const exportDialogOpen = useProjectStore((s) => s.exportDialogOpen)
+  const exportProgress = useProjectStore((s) => s.exportProgress)
+  const toastMessage = useProjectStore((s) => s.toastMessage)
+  const hideToast = useProjectStore((s) => s.hideToast)
+  const showExportDialog = useProjectStore((s) => s.showExportDialog)
 
   useEffect(() => {
     window.calliope.getEngineInfo()
       .then((info) => setEngineStatus(`JUCE ${info.juceVersion}`))
       .catch(() => setEngineStatus('offline'))
   }, [])
+
+  // Listen for menu:export event from main process
+  useEffect(() => {
+    window.calliope.onShowExportDialog?.(() => {
+      showExportDialog()
+    })
+    return () => {
+      window.calliope.removeShowExportDialogListener?.()
+    }
+  }, [showExportDialog])
 
   const handleDividerDrag = useCallback((deltaY: number) => {
     const store = usePianoRollStore.getState()
@@ -65,6 +84,19 @@ export default function App() {
             <MixerPanel />
           </div>
         </>
+      )}
+      {/* Export dialog */}
+      {exportDialogOpen && <ExportDialog />}
+      {/* Export progress overlay */}
+      {exportProgress !== null && <ExportProgress />}
+      {/* Toast notification */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage.message}
+          type={toastMessage.type}
+          onRetry={toastMessage.retryFn}
+          onDismiss={hideToast}
+        />
       )}
       {/* Engine status indicator */}
       <div className="absolute bottom-1 right-2 text-[10px] text-[#666666] pointer-events-none select-none">
