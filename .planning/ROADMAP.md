@@ -146,12 +146,12 @@ Plans:
   2. Master channel strip has volume fader and insert effect chain
   3. Per-track insert chain supports add, remove, reorder, and bypass per effect
   4. Real-time level meters display signal level on each channel strip
-**Plans:** 4 plans (3 complete + 1 gap closure)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 08-01-PLAN.md -- Mixer types, Zustand store, helper utilities with tests
 - [x] 08-02-PLAN.md -- C++ meter data pipeline, bridge, IPC, preload wiring
 - [x] 08-03-PLAN.md -- Mixer UI components, channel strips, App.tsx integration
-- [ ] 08-04-PLAN.md -- Gap closure: effect slot drag-and-drop reorder, mixer panel resize
+- [x] 08-04-PLAN.md -- Gap closure: effect slot drag-and-drop reorder, mixer panel resize
 **UI hint**: yes
 
 ### Phase 9: Project Management & Export
@@ -193,6 +193,6 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
 | 6. Timeline & Arrangement | 4/4 | Complete   | 2026-03-28 |
 | 7. Piano Roll | 3/3 | Complete   | 2026-03-28 |
-| 8. Mixer | 3/4 | Gap closure | 2026-03-29 |
+| 8. Mixer | 4/4 | Complete   | 2026-03-29 |
 | 9. Project Management & Export | 0/TBD | Not started | - |
 | 10. Application Integration | 0/TBD | Not started | - |
