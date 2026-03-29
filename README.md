@@ -33,8 +33,8 @@ Early development (v0.1.0). Core audio engine and UI foundations are functional.
 ## Setup
 
 ```bash
-git clone https://github.com/darmaly/LuneyTunes.git
-cd LuneyTunes
+git clone https://github.com/darmaly/Calliope.git
+cd Calliope
 git submodule update --init --recursive
 pnpm install
 ```
