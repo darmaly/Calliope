@@ -46,6 +46,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("getAudioConfig",
         Napi::Function::New(env, GetAudioConfig));
 
+    // Phase 8 — Metering
+    exports.Set("getMeterLevels",
+        Napi::Function::New(env, GetMeterLevels));
+
     // Phase 3 — Command dispatch
     exports.Set("dispatchCommand",
         Napi::Function::New(env, DispatchCommand));

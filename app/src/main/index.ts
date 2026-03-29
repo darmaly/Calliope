@@ -99,6 +99,11 @@ ipcMain.handle('engine:config:getAudioConfig', async () => {
   return await native.getAudioConfig()
 })
 
+// Phase 8 — Metering
+ipcMain.handle('engine:meter:getLevels', async () => {
+  return await native.getMeterLevels()
+})
+
 // Phase 3 — Command dispatch (Phase 4 instrument + Phase 5 effect commands flow through command:dispatch)
 // Supported commands: instrument.noteOn, instrument.noteOff, drumMachine.loadSample,
 //   effect.insert, effect.remove, effect.reorder, effect.bypass

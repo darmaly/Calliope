@@ -51,6 +51,9 @@ interface NativeAddon {
   getTransportState(): Promise<TransportState>
   getAudioConfig(): Promise<AudioConfig>
 
+  // Phase 8 — Metering
+  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
+
   // Phase 3 — Command dispatch
   // Phase 4 — Instrument command types (dispatched via dispatchCommand):
   // { command: 'instrument.noteOn', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number, velocity: number } }

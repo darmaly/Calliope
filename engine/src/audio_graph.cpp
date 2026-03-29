@@ -221,4 +221,32 @@ InsertChain& AudioGraph::getInsertChain(const juce::String& trackId)
     return getInsertChainProcessor(trackId).getInsertChain();
 }
 
+AudioGraph::AllMeterLevels AudioGraph::getMeterLevels() const
+{
+    AllMeterLevels result;
+
+    auto readMeter = [](const InsertChainProcessor* proc, const std::string& id) {
+        AllMeterLevels::TrackMeter m;
+        m.trackId = id;
+        m.rmsLeft = proc->getMeterData().rmsLeft.load(std::memory_order_relaxed);
+        m.rmsRight = proc->getMeterData().rmsRight.load(std::memory_order_relaxed);
+        m.peakLeft = proc->getMeterData().peakLeft.load(std::memory_order_relaxed);
+        m.peakRight = proc->getMeterData().peakRight.load(std::memory_order_relaxed);
+        return m;
+    };
+
+    result.tracks.push_back(readMeter(polySynthChainPtr_, "polysynth"));
+    result.tracks.push_back(readMeter(bassSynthChainPtr_, "basssynth"));
+    result.tracks.push_back(readMeter(drumMachineChainPtr_, "drumMachine"));
+
+    // Master meter (read from MasterBusProcessor meter data)
+    result.master.trackId = "master";
+    result.master.rmsLeft = masterBusPtr_->getMeterData().rmsLeft.load(std::memory_order_relaxed);
+    result.master.rmsRight = masterBusPtr_->getMeterData().rmsRight.load(std::memory_order_relaxed);
+    result.master.peakLeft = masterBusPtr_->getMeterData().peakLeft.load(std::memory_order_relaxed);
+    result.master.peakRight = masterBusPtr_->getMeterData().peakRight.load(std::memory_order_relaxed);
+
+    return result;
+}
+
 } // namespace calliope

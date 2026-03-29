@@ -52,8 +52,8 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 ### Mixer
 
 - [x] **MIX-01**: Per-track channel strip with volume fader, pan knob, mute, and solo
-- [x] **MIX-02**: Master channel strip with volume fader and insert effect chain
-- [x] **MIX-03**: Per-track insert effect chain with add, remove, reorder, and bypass per effect
+- [ ] **MIX-02**: Master channel strip with volume fader and insert effect chain
+- [ ] **MIX-03**: Per-track insert effect chain with add, remove, reorder, and bypass per effect
 - [x] **MIX-04**: Visual level meters on each channel strip showing real-time signal level
 
 ### Project Management
@@ -178,8 +178,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PR-04 | Phase 7 | Complete |
 | PR-05 | Phase 7 | Complete |
 | MIX-01 | Phase 8 | Complete |
-| MIX-02 | Phase 8 | Complete |
-| MIX-03 | Phase 8 | Complete |
+| MIX-02 | Phase 8 | Pending |
+| MIX-03 | Phase 8 | Pending |
 | MIX-04 | Phase 8 | Complete |
 | PROJ-01 | Phase 9 | Pending |
 | PROJ-02 | Phase 9 | Pending |

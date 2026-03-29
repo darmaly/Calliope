@@ -32,6 +32,18 @@ public:
     void setStateInformation(const void*, int) override;
 
     std::atomic<float> masterVolume{1.0f};
+
+    // Metering (Phase 8)
+    struct MeterData {
+        std::atomic<float> rmsLeft{0.0f};
+        std::atomic<float> rmsRight{0.0f};
+        std::atomic<float> peakLeft{0.0f};
+        std::atomic<float> peakRight{0.0f};
+    };
+    const MeterData& getMeterData() const { return meterData_; }
+
+private:
+    MeterData meterData_;
 };
 
 } // namespace calliope
