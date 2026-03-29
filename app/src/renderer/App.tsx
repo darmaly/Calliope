@@ -14,7 +14,7 @@ export default function App() {
   const collapsed = panelHeight <= 36
   const showPianoRoll = activeClipId !== null
   const showMixer = useMixerStore((s) => s.mixerVisible)
-  const mixerHeight = 300
+  const mixerHeight = useMixerStore((s) => s.mixerHeight)
 
   useEffect(() => {
     window.calliope.getEngineInfo()
@@ -35,8 +35,10 @@ export default function App() {
   }, [])
 
   const handleMixerDividerDrag = useCallback((deltaY: number) => {
-    // Mixer height is stored locally for now; could move to store if needed
-    // The mixer panel has a fixed height via the style prop
+    const store = useMixerStore.getState()
+    const maxH = window.innerHeight * 0.6
+    const newH = Math.max(240, Math.min(maxH, store.mixerHeight - deltaY))
+    store.setMixerHeight(newH)
   }, [])
 
   const handleMixerDoubleClick = useCallback(() => {

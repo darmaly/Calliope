@@ -11,6 +11,13 @@ interface EffectSlotProps {
   onRemove: () => void
   onBypass: () => void
   onClick: () => void
+  draggable?: boolean
+  onDragStart?: (e: React.DragEvent) => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: (e: React.DragEvent) => void
+  onDragEnd?: () => void
+  isDragOver?: boolean
+  isDragging?: boolean
 }
 
 function effectLabel(effectType: string): string {
@@ -18,7 +25,7 @@ function effectLabel(effectType: string): string {
   return found ? found.label : effectType
 }
 
-export function EffectSlot({ slot, index: _index, onAdd, onRemove, onBypass, onClick }: EffectSlotProps) {
+export function EffectSlot({ slot, index: _index, onAdd, onRemove, onBypass, onClick, draggable, onDragStart, onDragOver, onDrop, onDragEnd, isDragOver, isDragging }: EffectSlotProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const contextMenu = useContextMenu()
 
@@ -113,8 +120,16 @@ export function EffectSlot({ slot, index: _index, onAdd, onRemove, onBypass, onC
         display: 'flex',
         alignItems: 'center',
         gap: 4,
-        cursor: 'pointer',
+        cursor: draggable ? 'grab' : 'pointer',
+        opacity: isDragging ? 0.4 : 1,
+        borderTop: isDragOver ? '2px solid #6c63ff' : '2px solid transparent',
+        boxSizing: 'border-box',
       }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       onContextMenu={handleContextMenu}
     >

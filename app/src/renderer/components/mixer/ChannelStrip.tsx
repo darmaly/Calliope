@@ -85,6 +85,14 @@ export function ChannelStrip({ track }: ChannelStripProps) {
     [track.id],
   )
 
+  const handleReorderEffect = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      useMixerStore.getState().reorderTrackEffect(track.id, fromIndex, toIndex)
+      try { window.calliope.effectReorder(track.id, fromIndex, toIndex) } catch {}
+    },
+    [track.id],
+  )
+
   return (
     <div
       style={{
@@ -184,6 +192,7 @@ export function ChannelStrip({ track }: ChannelStripProps) {
           onRemove={handleRemoveEffect}
           onBypass={handleBypassEffect}
           onSlotClick={handleSlotClick}
+          onReorder={handleReorderEffect}
         />
       </div>
 

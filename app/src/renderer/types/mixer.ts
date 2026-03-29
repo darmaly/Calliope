@@ -31,6 +31,8 @@ export interface MixerState {
   masterPan: number      // -1.0 to 1.0, default 0.0
   masterLevel: LevelData // real-time meter data
   masterEffects: EffectSlotInfo[]
+  // Panel height
+  mixerHeight: number   // default 300, min 240
 }
 
 export interface MixerActions {
@@ -59,6 +61,8 @@ export interface MixerActions {
   removeMasterEffect: (index: number) => void
   reorderMasterEffect: (fromIndex: number, toIndex: number) => void
   bypassMasterEffect: (index: number, bypassed: boolean) => void
+  // Panel height
+  setMixerHeight: (height: number) => void
   // Cleanup
   removeTrackData: (trackId: string) => void
 }
