@@ -29,8 +29,8 @@ interface PianoRollCanvasProps {
   trackColorHex: string
 }
 
-const MIN_ROW_HEIGHT = 8
-const MAX_ROW_HEIGHT = 32
+const MIN_ROW_HEIGHT = 4
+const MAX_ROW_HEIGHT = 48
 const EDGE_THRESHOLD = 6
 const MIN_DRAG_DISTANCE = 4
 
@@ -72,7 +72,7 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
 
   const [size, setSize] = useState({ width: 800, height: 400 })
 
-  // Observe container size
+  // Observe container size and force PixiJS renderer to resize
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -80,15 +80,19 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (entry) {
-        setSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        })
+        const w = entry.contentRect.width
+        const h = entry.contentRect.height
+        setSize({ width: w, height: h })
+        // Force PixiJS renderer to resize to match container
+        const pixiApp = (app as any)?.app ?? app
+        if (pixiApp?.renderer) {
+          pixiApp.renderer.resize(w, h)
+        }
       }
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [containerRef])
+  }, [containerRef, app])
 
   // Imperatively sync scroll position for note grid container
   const scrollContainerRef = useRef<import('pixi.js').Container | null>(null)
@@ -122,7 +126,20 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
       const nrh = prState.noteRowHeight
       const ppb = useTimelineStore.getState().pixelsPerBeat
 
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+      if (e.altKey) {
+        // Alt+wheel: adjust velocity of selected notes
+        const selected = usePianoRollStore.getState().selectedNoteIds
+        if (selected.size > 0) {
+          const delta = e.deltaY > 0 ? -5 : 5
+          for (const noteId of selected) {
+            const note = usePianoRollStore.getState().notes[noteId]
+            if (note) {
+              const newVel = Math.max(1, Math.min(127, note.velocity + delta))
+              usePianoRollStore.getState().updateNote(noteId, { velocity: newVel })
+            }
+          }
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
         // Ctrl+Shift+wheel: vertical zoom (note row height)
         const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1
         const newH = Math.round(nrh * factor)
@@ -307,9 +324,15 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
             setDrag({ mode: 'move', startX: px, startY: py, currentX: px, currentY: py, originals })
           }
         } else {
-          // Click on empty grid: clear selection and start create mode
+          // Click on empty grid
           clearNoteSelection()
-          setDrag({ mode: 'create', startX: px, startY: py, currentX: px, currentY: py })
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl+drag on empty: box select
+            setDrag({ mode: 'select', startX: px, startY: py, currentX: px, currentY: py })
+          } else {
+            // Normal drag on empty: create note
+            setDrag({ mode: 'create', startX: px, startY: py, currentX: px, currentY: py })
+          }
         }
       }
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
