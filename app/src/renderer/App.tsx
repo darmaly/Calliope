@@ -8,7 +8,9 @@ import './App.css'
 export default function App() {
   const [engineStatus, setEngineStatus] = useState<string>('connecting...')
   const panelHeight = usePianoRollStore((s) => s.panelHeight)
+  const activeClipId = usePianoRollStore((s) => s.activeClipId)
   const collapsed = panelHeight <= 36
+  const showPianoRoll = activeClipId !== null
 
   useEffect(() => {
     window.calliope.getEngineInfo()
@@ -33,10 +35,14 @@ export default function App() {
       <div className="flex-1 min-h-[200px] overflow-hidden">
         <TimelineView />
       </div>
-      <SplitDivider onDrag={handleDividerDrag} onDoubleClick={handleDividerDoubleClick} />
-      <div style={{ height: panelHeight, minHeight: collapsed ? 36 : 200 }} className="overflow-hidden">
-        <PianoRollPanel />
-      </div>
+      {showPianoRoll && (
+        <>
+          <SplitDivider onDrag={handleDividerDrag} onDoubleClick={handleDividerDoubleClick} />
+          <div style={{ height: panelHeight, minHeight: collapsed ? 36 : 200 }} className="overflow-hidden">
+            <PianoRollPanel />
+          </div>
+        </>
+      )}
       {/* Engine status indicator */}
       <div className="absolute bottom-1 right-2 text-[10px] text-[#666666] pointer-events-none select-none">
         Engine: {engineStatus}
