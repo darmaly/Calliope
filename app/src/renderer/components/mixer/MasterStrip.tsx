@@ -49,6 +49,11 @@ export function MasterStrip() {
     [],
   )
 
+  const handleReorderEffect = useCallback((fromIndex: number, toIndex: number) => {
+    useMixerStore.getState().reorderMasterEffect(fromIndex, toIndex)
+    try { window.calliope.effectReorder('master', fromIndex, toIndex) } catch {}
+  }, [])
+
   return (
     <div
       style={{
@@ -107,6 +112,7 @@ export function MasterStrip() {
           onRemove={handleRemoveEffect}
           onBypass={handleBypassEffect}
           onSlotClick={handleSlotClick}
+          onReorder={handleReorderEffect}
         />
       </div>
 
