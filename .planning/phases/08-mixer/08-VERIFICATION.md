@@ -1,52 +1,40 @@
 ---
 phase: 08-mixer
-verified: 2026-03-29T16:02:00Z
-status: gaps_found
-score: 6/8 must-haves verified
-re_verification: false
-gaps:
-  - truth: "Effect slots allow add, remove, bypass, and click to open parameter popover"
-    status: partial
-    reason: "Add, remove, bypass, and parameter popover click are wired. Reorder (drag-and-drop) is unimplemented in UI. MIX-03 explicitly requires reorder per effect."
-    artifacts:
-      - path: "app/src/renderer/components/mixer/EffectSlotList.tsx"
-        issue: "No onReorder prop, no draggable attribute, no HTML5 drag-and-drop wiring"
-      - path: "app/src/renderer/components/mixer/EffectSlot.tsx"
-        issue: "No drag handles, no onDragStart/onDrop handlers"
-    missing:
-      - "Add onReorder prop to EffectSlotList"
-      - "Implement HTML5 drag-and-drop or pointer-based reorder in EffectSlotList"
-      - "Wire reorder to useMixerStore.getState().reorderTrackEffect / reorderMasterEffect"
-
-  - truth: "Mixer panel toggles from toolbar button, appears below timeline/piano-roll"
-    status: partial
-    reason: "Toggle open/close works. SplitDivider is present but handleMixerDividerDrag is an empty no-op and mixerHeight is hardcoded to 300. Panel is not resizable."
-    artifacts:
-      - path: "app/src/renderer/App.tsx"
-        issue: "handleMixerDividerDrag callback is empty; mixerHeight = 300 hardcoded, not read from store"
-    missing:
-      - "Add mixerPanelHeight to mixer-store (or local state)"
-      - "Implement handleMixerDividerDrag to compute and persist new height"
-      - "Read mixerHeight from store/state instead of hardcoding 300"
-
+verified: 2026-03-29T21:15:00Z
+status: human_needed
+score: 8/8 must-haves verified
+re_verification:
+  previous_status: gaps_found
+  previous_score: 6/8
+  gaps_closed:
+    - "Effect slot reorder not wired — HTML5 drag-and-drop implemented in EffectSlotList/EffectSlot, onReorder wired through ChannelStrip and MasterStrip to store"
+    - "Mixer panel not resizable — mixerHeight added to mixer-store, handleMixerDividerDrag implemented in App.tsx reading from and writing to store"
+  gaps_remaining: []
+  regressions: []
 human_verification:
   - test: "Open mixer panel and verify visual layout"
     expected: "Channel strips render for each track, Master strip is rightmost and wider, faders/knobs/buttons all visible"
-    why_human: "Plan 03 Task 3 is a blocking human-verify checkpoint that was not completed before summary was written"
+    why_human: "Requires running Electron app; visual correctness cannot be verified from static code"
+  - test: "Drag volume fader and pan knob, double-click to reset each"
+    expected: "Fader dB readout updates continuously from -inf to +6dB; double-click snaps to 0dB; pan label changes (50L, C, 75R); double-click returns to C"
+    why_human: "Requires pointer event interaction in running app"
   - test: "Play audio and verify level meters animate"
-    expected: "Green/amber/red gradient bars animate at ~30Hz when audio plays"
-    why_human: "Requires audio playback; C++ engine must be running"
-  - test: "Drag a volume fader and verify audio volume changes"
-    expected: "Dragging fader changes track volume; dB readout updates; double-click resets to 0dB"
-    why_human: "Requires interactive pointer events in running Electron app"
+    expected: "Green/amber/red gradient bars animate at approximately 30Hz when audio plays"
+    why_human: "Requires live audio playback; C++ engine audio thread must be producing samples"
+  - test: "Add effect, drag it to reorder within the slot list"
+    expected: "Purple 2px top-border appears on drop target; slot moves to new position; engine IPC call dispatched"
+    why_human: "Requires interactive drag-and-drop in running app"
+  - test: "Drag split divider above mixer panel; verify panel grows and shrinks"
+    expected: "Panel height adjusts continuously while dragging; stops at 240px minimum and 60vh maximum"
+    why_human: "Requires pointer drag in running app"
 ---
 
-# Phase 8: Mixer Verification Report
+# Phase 8: Mixer Verification Report (Re-verification)
 
 **Phase Goal:** Users can mix tracks with volume, pan, mute/solo, effect inserts, and real-time level meters
-**Verified:** 2026-03-29T16:02:00Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-03-29T21:15:00Z
+**Status:** human_needed
+**Re-verification:** Yes — after gap closure (Plan 08-04)
 
 ## Goal Achievement
 
@@ -56,148 +44,118 @@ human_verification:
 |---|-------|--------|----------|
 | 1 | Each track displays a channel strip with volume fader, pan knob, mute, solo, arm buttons | VERIFIED | ChannelStrip.tsx: Fader + PanKnob + M/S/Arm buttons all wired to useMixerStore and useTimelineStore |
 | 2 | Master strip is always visible, rightmost, wider, with its own effect chain | VERIFIED | MasterStrip.tsx: 88px width, `#2a2a4e` background, `#6c63ff` left border, EffectSlotList wired to masterEffects |
-| 3 | Effect slots allow add, remove, bypass, and click to open parameter popover | PARTIAL | Add/remove/bypass/popover wired. Reorder not implemented in UI. |
+| 3 | Effect slots allow add, remove, bypass, reorder, and click to open parameter popover | VERIFIED | Add/remove/bypass/popover previously verified; reorder now implemented via HTML5 drag-and-drop; onReorder prop wired in ChannelStrip and MasterStrip to store |
 | 4 | Level meters animate at ~30Hz with green/amber/red gradient and peak hold | VERIFIED | LevelMeter.tsx: Canvas 2D createLinearGradient with #22c55e/#f59e0b/#ef4444; useMeterPolling uses requestAnimationFrame polling window.calliope.getMeterLevels() |
-| 5 | Mixer panel toggles from toolbar button, appears below timeline/piano-roll | PARTIAL | Toggle works (mixerVisible, toggleMixerVisible, SlidersHorizontal button). SplitDivider present but handleMixerDividerDrag is empty; height hardcoded to 300. |
-| 6 | Fader range is -inf to +6dB with dB markings and double-click to reset | VERIFIED | Fader.tsx: faderToGain/gainToFader logarithmic mapping, formatDb readout, onPointerDown double-click reset to onChange(1.0) |
+| 5 | Mixer panel toggles from toolbar button, appears below timeline/piano-roll, and is resizable | VERIFIED | Toggle works; SplitDivider now calls functional handleMixerDividerDrag; mixerHeight read from useMixerStore, not hardcoded |
+| 6 | Fader range is -inf to +6dB with dB markings and double-click to reset | VERIFIED | Fader.tsx: faderToGain/gainToFader logarithmic mapping, formatDb readout, double-click reset to onChange(1.0) |
 | 7 | Pan knob rotates via pointer drag, double-click resets to center | VERIFIED | PanKnob.tsx: setPointerCapture + vertical pointer drag, double-click resets to onChange(0), panToString label |
 | 8 | C++ engine computes per-track and master RMS/peak in processBlock using atomics | VERIFIED | insert_chain_processor.cpp and master_bus.cpp: memory_order_relaxed stores at end of processBlock |
 
-**Score:** 6/8 truths verified (2 partial)
+**Score:** 8/8 truths verified
 
-### Required Artifacts
+### Required Artifacts (Gap-Closure Focus)
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `app/src/renderer/types/mixer.ts` | Mixer types | VERIFIED | EffectSlotInfo, LevelData, EFFECT_TYPES, EffectType |
-| `app/src/renderer/stores/mixer-store.ts` | Zustand mixer store | VERIFIED | 153 lines; trackVolumes/trackPans/trackLevels/trackEffects/masterVolume/masterEffects; full CRUD actions |
-| `app/src/renderer/utils/mixer-helpers.ts` | dB/linear/fader helpers | VERIFIED | dbToLinear, linearToDb, formatDb, faderToGain, gainToFader, panToString, clampVolume, clampPan |
-| `app/src/renderer/components/mixer/Fader.tsx` | Vertical fader | VERIFIED | 182 lines; faderToGain, onPointerDown pointer capture, dB scale markings |
-| `app/src/renderer/components/mixer/PanKnob.tsx` | Rotary pan | VERIFIED | 92 lines; setPointerCapture, panToString, double-click reset |
-| `app/src/renderer/components/mixer/LevelMeter.tsx` | Canvas 2D meter | VERIFIED | 74 lines; useRef+useEffect, createLinearGradient, green/amber/red stops |
-| `app/src/renderer/components/mixer/EffectSlot.tsx` | Effect slot | VERIFIED | 162 lines; add dropdown, bypass toggle, context menu for remove |
-| `app/src/renderer/components/mixer/EffectSlotList.tsx` | Effect slot list | PARTIAL | 49 lines; renders filled slots + empty add slot; no reorder UI |
-| `app/src/renderer/components/mixer/EffectParamPopover.tsx` | Effect parameter editor | VERIFIED | 145 lines; createPortal, per-effect-type param sliders, outside-click close |
-| `app/src/renderer/components/mixer/ChannelStrip.tsx` | Per-track strip | VERIFIED | 202 lines; useMixerStore + useTimelineStore; Fader/PanKnob/LevelMeter/EffectSlotList/M/S/Arm |
-| `app/src/renderer/components/mixer/MasterStrip.tsx` | Master strip | VERIFIED | 125 lines; #2a2a4e bg, 88px, master effects wired |
-| `app/src/renderer/components/mixer/MixerPanel.tsx` | Mixer container | VERIFIED | useMeterPolling called, horizontal scroll of ChannelStrips, MasterStrip pinned, empty state |
-| `app/src/renderer/components/mixer/MixerToolbar.tsx` | Mixer toolbar header | VERIFIED | 22 lines; "Mixer" label |
-| `app/src/renderer/hooks/use-meter-polling.ts` | RAF meter poll hook | VERIFIED | requestAnimationFrame loop when mixerVisible, calls getMeterLevels, setTrackLevel/setMasterLevel |
-| `engine/include/calliope/insert_chain_processor.h` | MeterData struct | VERIFIED | struct MeterData with atomic<float> rmsLeft/rmsRight/peakLeft/peakRight; getMeterData() accessor |
-| `engine/src/insert_chain_processor.cpp` | Meter computation | VERIFIED | RMS + peak computed after chain_.process(), stored with memory_order_relaxed |
-| `engine/include/calliope/master_bus.h` | Master MeterData | VERIFIED | Same MeterData struct and getMeterData() |
-| `engine/src/master_bus.cpp` | Master meter computation | VERIFIED | RMS + peak computed after volume application, memory_order_relaxed |
-| `engine/include/calliope/audio_graph.h` | AllMeterLevels | VERIFIED | struct AllMeterLevels with tracks vector + master; getMeterLevels() method |
-| `engine/src/audio_graph.cpp` | getMeterLevels() impl | VERIFIED | Reads all 3 track chains + masterBus atomics into AllMeterLevels |
-| `engine/include/calliope/engine.h` | getMeterLevels delegation | VERIFIED | AudioGraph::AllMeterLevels getMeterLevels() const |
-| `native/src/bridge.cpp` | GetMeterLevels bridge | VERIFIED | ThreadSafeFunction + std::thread pattern, builds AllMeterLevels into Napi::Object |
-| `native/src/addon.cpp` | getMeterLevels export | VERIFIED | exports.Set("getMeterLevels", ...) at line 50 |
-| `app/src/main/index.ts` | IPC handler | VERIFIED | ipcMain.handle('engine:meter:getLevels') returns addon.getMeterLevels() |
-| `app/src/preload/index.ts` | Preload API | VERIFIED | getMeterLevels, setTrackVolume, setTrackPan all present and invoke correct IPC channels |
-| `app/src/renderer/types/calliope.d.ts` | Type declarations | VERIFIED | getMeterLevels, setTrackVolume, setTrackPan typed |
-| `app/src/renderer/components/timeline/TimelineToolbar.tsx` | Mixer toggle button | VERIFIED | SlidersHorizontal icon + "Mixer" text; onClick calls toggleMixerVisible() |
-| `app/src/renderer/App.tsx` | Mixer panel in layout | PARTIAL | MixerPanel rendered when showMixer; SplitDivider present but handleMixerDividerDrag is empty no-op; mixerHeight hardcoded |
+Previously-passing artifacts are not re-listed. Only gap-closure artifacts are reassessed below.
 
-### Key Link Verification
+| Artifact | Gap | Status | Details |
+|----------|-----|--------|---------|
+| `app/src/renderer/components/mixer/EffectSlotList.tsx` | Gap 1: reorder | VERIFIED | 86 lines; onReorder prop in interface; useState for draggedIndex/dragOverIndex; handleDragStart/handleDragOver/handleDrop/handleDragEnd all implemented; filled slots pass draggable={true} and all 4 drag handlers; empty "Add Effect" slot omits all drag props |
+| `app/src/renderer/components/mixer/EffectSlot.tsx` | Gap 1: reorder | VERIFIED | 177 lines; draggable/onDragStart/onDragOver/onDrop/onDragEnd/isDragOver/isDragging all in EffectSlotProps as optional; cursor:'grab' when draggable; opacity:0.4 when isDragging; 2px top border #6c63ff when isDragOver |
+| `app/src/renderer/components/mixer/ChannelStrip.tsx` | Gap 1: reorder | VERIFIED | handleReorderEffect at lines 88-94 calls reorderTrackEffect then window.calliope.effectReorder; onReorder={handleReorderEffect} passed to EffectSlotList at line 195 |
+| `app/src/renderer/components/mixer/MasterStrip.tsx` | Gap 1: reorder | VERIFIED | handleReorderEffect at lines 52-55 calls reorderMasterEffect then window.calliope.effectReorder('master', ...); onReorder={handleReorderEffect} passed to EffectSlotList at line 115 |
+| `app/src/renderer/App.tsx` | Gap 2: resize | VERIFIED | mixerHeight = useMixerStore((s) => s.mixerHeight) at line 17 (no longer hardcoded); handleMixerDividerDrag at lines 37-42 reads store.mixerHeight, computes Math.max(240, Math.min(maxH, ... - deltaY)), calls store.setMixerHeight |
+| `app/src/renderer/stores/mixer-store.ts` | Gap 2: resize | VERIFIED | mixerHeight: 300 initial state (line 10); setMixerHeight action (line 146) |
+| `app/src/renderer/types/mixer.ts` | Gap 2: resize | VERIFIED | mixerHeight: number in MixerState (line 35); setMixerHeight: (height: number) => void in MixerActions (line 65) |
+
+### Key Link Verification (Re-verification)
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `ChannelStrip.tsx` | `mixer-store.ts` | useMixerStore selectors | WIRED | trackVolumes, trackPans, trackLevels, trackEffects all read via individual selectors |
-| `ChannelStrip.tsx` | `timeline-store.ts` | useTimelineStore for mute/solo/arm | WIRED | toggleMute, toggleSolo, toggleArm, selectTrack all called |
-| `use-meter-polling.ts` | `mixer-store.ts` | setTrackLevel / setMasterLevel from getMeterLevels IPC | WIRED | Polling loop calls window.calliope.getMeterLevels() then setTrackLevel/setMasterLevel |
-| `App.tsx` | `mixer-store.ts` | mixerVisible controls mixer rendering | WIRED | useMixerStore((s) => s.mixerVisible) → showMixer conditional |
-| `TimelineToolbar.tsx` | `mixer-store.ts` | toggleMixerVisible on button click | WIRED | useMixerStore.getState().toggleMixerVisible() on onClick |
-| `preload/index.ts` | `main/index.ts` | IPC invoke engine:meter:getLevels | WIRED | preload invokes 'engine:meter:getLevels'; main handles and calls addon.getMeterLevels() |
-| `bridge.cpp` | `engine.h` | Engine::getInstance().getMeterLevels() | WIRED | GetMeterLevels calls engine.getMeterLevels() which delegates to AudioGraph |
-| `insert_chain_processor.cpp` | `insert_chain_processor.h` | MeterData atomic writes in processBlock | WIRED | meterData_.rmsLeft.store/peakLeft.store with memory_order_relaxed after chain processing |
-| `App.tsx` SplitDivider → mixer height | `mixer-store.ts` | handleMixerDividerDrag callback | NOT_WIRED | handleMixerDividerDrag is an empty function body; mixerHeight hardcoded to 300 |
-| `EffectSlotList.tsx` → reorder | `mixer-store.ts` | reorderTrackEffect action | NOT_WIRED | No drag-and-drop UI; reorderTrackEffect/reorderMasterEffect actions exist in store but unreachable from UI |
+| `EffectSlotList.tsx` | `mixer-store.ts` | onReorder callback to reorderTrackEffect / reorderMasterEffect | WIRED | handleDrop calls onReorder(draggedIndex, targetIndex); ChannelStrip.handleReorderEffect calls reorderTrackEffect; MasterStrip.handleReorderEffect calls reorderMasterEffect |
+| `App.tsx` | `mixer-store.ts` | handleMixerDividerDrag updates mixerHeight via setMixerHeight | WIRED | store.setMixerHeight(newH) called with Math.max/Math.min clamped value on every drag event; mixerHeight read from store via selector |
 
-### Data-Flow Trace (Level 4)
+Both previously-failing links are now WIRED. All 10 key links from initial verification pass.
 
-| Artifact | Data Variable | Source | Produces Real Data | Status |
-|----------|---------------|--------|--------------------|--------|
-| `LevelMeter.tsx` | leftLevel, rightLevel, leftPeak, rightPeak | ChannelStrip reads trackLevels[track.id] from mixer-store | Yes — meter polling hook writes peakLeft/peakRight from C++ bridge on each RAF frame | FLOWING |
-| `MasterStrip.tsx` | masterLevel | mixer-store.masterLevel | Yes — meter polling writes setMasterLevel from 'master' key in getMeterLevels response | FLOWING |
-| `ChannelStrip.tsx` | volume (trackVolumes), pan (trackPans) | mixer-store.trackVolumes/trackPans | Yes — written by setTrackVolume/setTrackPan actions which also dispatch to C++ engine | FLOWING |
-| `EffectSlotList.tsx` | slots (trackEffects) | mixer-store.trackEffects | Yes — addTrackEffect/removeTrackEffect/bypassTrackEffect wired; reorderTrackEffect unreachable | PARTIAL |
-
-**Note:** LevelMeter receives `leftPeak` = `level?.peakL` which is the same value as `leftLevel`. The store stores only peak values (no separate RMS). The visual peak-hold indicator and the bar level are identical. This is a cosmetic limitation — meters will work but the peak hold line will coincide with the top of the bar during active signal.
-
-### Behavioral Spot-Checks
+### Behavioral Spot-Checks (Re-verification)
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Mixer tests pass | `npx vitest run test/mixer-store.test.ts test/mixer-helpers.test.ts` | 55 tests passed | PASS |
-| Full test suite | `npx vitest run` | 170 passed, 5 todo, 3 skipped native | PASS |
 | TypeScript compiles | `npx tsc --noEmit --project app/tsconfig.json` | No output (clean) | PASS |
-| MeterData struct in C++ header | grep `struct MeterData` insert_chain_processor.h | Found at line 43 | PASS |
-| getMeterLevels in bridge export | grep `getMeterLevels` native/src/addon.cpp | Found at line 50 | PASS |
-| Effect reorder in UI | grep `reorder\|draggable\|onDragStart` mixer components | No matches | FAIL |
-| Mixer height resizable | grep `handleMixerDividerDrag` App.tsx | Empty function body | FAIL |
+| Mixer tests pass | `npx vitest run test/mixer-store.test.ts test/mixer-helpers.test.ts` | 55 tests passed | PASS |
+| Full test suite | `npx vitest run` | 170 passed, 5 todo, 2 files skipped | PASS |
+| Effect reorder in EffectSlotList | grep onReorder/draggable/onDragStart/onDrop | 7 matches across file | PASS |
+| Effect reorder in EffectSlot | grep draggable/isDragOver/onDragStart in interface and JSX | Found | PASS |
+| ChannelStrip passes onReorder | grep onReorder ChannelStrip.tsx | Lines 88-94 and 195 | PASS |
+| MasterStrip passes onReorder | grep onReorder MasterStrip.tsx | Lines 52-55 and 115 | PASS |
+| mixerHeight in store | grep mixerHeight mixer-store.ts | Lines 10, 146 | PASS |
+| App reads mixerHeight from store | grep useMixerStore.*mixerHeight App.tsx | Line 17 | PASS |
+| handleMixerDividerDrag uses Math clamping | grep Math App.tsx in handler | Line 40 | PASS |
+| No hardcoded mixerHeight=300 in App.tsx | grep "const mixerHeight = 300" App.tsx | No match | PASS |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| MIX-01 | 08-01-PLAN, 08-03-PLAN | Per-track channel strip with volume fader, pan knob, mute, and solo | SATISFIED | ChannelStrip.tsx: Fader + PanKnob + M/S/Arm buttons fully wired |
-| MIX-02 | 08-01-PLAN, 08-03-PLAN | Master channel strip with volume fader and insert effect chain | SATISFIED | MasterStrip.tsx: volume fader via Fader + masterEffects via EffectSlotList |
-| MIX-03 | 08-01-PLAN, 08-03-PLAN | Per-track insert effect chain with add, remove, reorder, and bypass per effect | PARTIAL | Add/remove/bypass: wired. Reorder: store method exists but no UI interaction exposes it |
-| MIX-04 | 08-02-PLAN, 08-03-PLAN | Visual level meters on each channel strip showing real-time signal level | SATISFIED | Full pipeline: C++ atomics → bridge → IPC → preload → RAF polling → mixer-store → LevelMeter canvas |
+| MIX-01 | 08-01, 08-03 | Per-track channel strip with volume fader, pan knob, mute, and solo | SATISFIED | ChannelStrip.tsx fully wired; no regression |
+| MIX-02 | 08-01, 08-03 | Master channel strip with volume fader and insert effect chain | SATISFIED | MasterStrip.tsx fully wired; no regression |
+| MIX-03 | 08-01, 08-03, 08-04 | Per-track insert effect chain with add, remove, reorder, and bypass per effect | SATISFIED | All four operations wired: add (onAdd), remove (onRemove), bypass (onBypass + context menu), reorder (HTML5 drag-and-drop via onReorder) |
+| MIX-04 | 08-02, 08-03 | Visual level meters on each channel strip showing real-time signal level | SATISFIED | Full C++ atomics to bridge to IPC to preload to RAF polling to mixer-store to LevelMeter canvas pipeline unchanged |
 
-**Orphaned requirements:** None. All four MIX requirements appear in at least one plan's `requirements` field and are accounted for above.
+All four requirements fully satisfied. No orphaned requirements.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `app/src/renderer/App.tsx` | 37-40 | `handleMixerDividerDrag` is empty callback — SplitDivider drag does nothing | Warning | Mixer panel not resizable; always renders at fixed 300px |
-| `app/src/renderer/components/mixer/EffectSlotList.tsx` | 42-44 | `onRemove={() => {}}`, `onBypass={() => {}}`, `onClick={() => {}}` on empty slot | Info | Expected for the empty "Add Effect" row which cannot be removed/bypassed; not a stub |
-| `app/src/renderer/components/mixer/ChannelStrip.tsx` | 134-137 | `leftPeak={level?.peakL ?? 0}` same as leftLevel — no separate peak hold value | Info | Visual limitation: peak hold indicator coincides with bar top; store stores only peak, not separate RMS |
+| `app/src/renderer/components/mixer/ChannelStrip.tsx` | 144-145 | leftPeak={level?.peakL ?? 0} same value as leftLevel — no separate peak hold | Info | Visual: peak hold line coincides with bar top; cosmetic limitation, meters function correctly |
+
+Previously-flagged blockers (empty handleMixerDividerDrag, missing onReorder) are resolved.
 
 ### Human Verification Required
 
 #### 1. Mixer Panel Visual Layout
 
-**Test:** Run `npm run dev`, click "Mixer" button in timeline toolbar
-**Expected:** Mixer panel opens below timeline; channel strips render for each existing track (left-to-right, scrollable); Master strip pinned rightmost, wider with purple left border
-**Why human:** Requires running Electron app; visual correctness cannot be verified from static code
+**Test:** Run `npm run dev`, click "Mixer" button in timeline toolbar.
+**Expected:** Mixer panel opens below timeline; channel strips render for each track left-to-right with horizontal scroll; Master strip pinned rightmost, wider with purple left border.
+**Why human:** Requires running Electron app; visual layout cannot be verified from static code.
 
-#### 2. Level Meter Animation
+#### 2. Interactive Fader and Pan Controls
 
-**Test:** With mixer open, play audio using an instrument (e.g., PolySynth). Observe level meters.
-**Expected:** Canvas 2D bars animate with green/amber/red gradient at approximately 30Hz; bars grow taller with louder signal
-**Why human:** Requires live audio playback; C++ engine audio thread must be producing samples
+**Test:** Drag a volume fader up and down; double-click to reset. Drag pan knob vertically; double-click to center.
+**Expected:** Fader dB readout updates from -inf to +6dB; double-click snaps to 0dB; pan label changes (50L, C, 75R); double-click returns to C.
+**Why human:** Requires pointer event interaction in running app.
 
-#### 3. Interactive Controls
+#### 3. Level Meter Animation
 
-**Test:** Drag a volume fader up and down; double-click to reset; drag pan knob vertically; double-click to center
-**Expected:** Fader dB readout updates continuously from -inf to +6dB; double-click snaps to 0dB; pan label changes (e.g., "50L", "C", "75R"); double-click returns to "C"
-**Why human:** Requires pointer event interaction in running app
+**Test:** With mixer open, play audio using an instrument. Observe level meters.
+**Expected:** Canvas 2D bars animate with green/amber/red gradient at approximately 30Hz; bars grow with louder signal.
+**Why human:** Requires live audio playback; C++ engine audio thread must be producing samples.
 
-#### 4. Effect Slots Add/Remove/Bypass/Popover
+#### 4. Effect Slot Drag-and-Drop Reorder
 
-**Test:** Click empty effect slot, choose "Reverb", verify slot appears; click bypass toggle; click filled slot for popover; right-click for context menu "Remove Effect"
-**Expected:** All four operations function correctly with correct visual feedback
-**Why human:** Requires interactive click/right-click in running app
+**Test:** Add two or more effects to a track. Drag one effect slot above or below another.
+**Expected:** Purple 2px top border appears on the slot below the cursor during drag; releasing drops the effect at the new position; slot order updates visually; dragged slot returns to full opacity.
+**Why human:** Requires interactive drag-and-drop in running Electron app.
 
-#### 5. Plan 03 Task 3 Checkpoint
+#### 5. Mixer Panel Resize
 
-**Note:** Plan 03's Task 3 is a blocking `checkpoint:human-verify` gate that was not completed. The SUMMARY records this as "checkpoint pending". Human sign-off on the above items constitutes completing this checkpoint.
+**Test:** Drag the split divider above the open mixer panel upward (to grow) and downward (to shrink).
+**Expected:** Panel height adjusts continuously while dragging; stops growing at 60% of window height; stops shrinking at 240px minimum.
+**Why human:** Requires pointer drag in running app.
 
-### Gaps Summary
+### Gap Closure Summary
 
-Two functional gaps block complete goal achievement:
+Both gaps identified in the initial verification are now closed.
 
-**Gap 1 — Effect slot reorder not wired (MIX-03 partial)**
-MIX-03 requires "add, remove, reorder, and bypass per effect." The store correctly implements `reorderTrackEffect` and `reorderMasterEffect`, but no UI element (drag handles, onDragStart, onDrop) exposes reorder to the user. The `EffectSlotList` component has no `onReorder` prop and no drag-and-drop implementation. This is the sole remaining piece of MIX-03.
+**Gap 1 — Effect slot reorder (CLOSED)**
+HTML5 drag-and-drop is fully implemented. `EffectSlotList` tracks `draggedIndex` and `dragOverIndex` state, passes `draggable={true}` and all four drag event handlers to each filled `EffectSlot`. `EffectSlot` renders visual feedback: `opacity:0.4` on the dragged slot and a 2px `#6c63ff` top border on the drop target. Both `ChannelStrip` and `MasterStrip` wire `onReorder` to their respective store actions (`reorderTrackEffect` / `reorderMasterEffect`) with a try/catch IPC call for the engine. MIX-03 is now fully satisfied.
 
-**Gap 2 — Mixer panel not resizable**
-Plan 03's success criterion states "Panel resizable via split divider." The `SplitDivider` component is rendered between the timeline and mixer panel in `App.tsx`, but `handleMixerDividerDrag` is an empty function and `mixerHeight` is a hardcoded constant (`300`). The user cannot resize the mixer panel by dragging. This is a usability gap — the mixer is functional at the fixed height but doesn't behave like the piano roll panel which correctly uses `panelHeight` from its store.
+**Gap 2 — Mixer panel resize (CLOSED)**
+`mixerHeight` is now a first-class field in `mixer-store.ts` (default 300, interface documented in `types/mixer.ts`). `App.tsx` reads height via `useMixerStore((s) => s.mixerHeight)` selector and `handleMixerDividerDrag` computes the clamped new height (`Math.max(240, Math.min(60vh, store.mixerHeight - deltaY))`) and writes it back via `store.setMixerHeight`. The pattern is identical to the piano roll `panelHeight` implementation.
 
-Both gaps are isolated to the UI layer and do not affect the data layer (store, C++ engine, bridge, IPC) which is fully verified. All four requirements are at minimum partially satisfied. MIX-01, MIX-02, and MIX-04 are fully satisfied.
+All 8 observable truths are now verified. The phase goal is achieved at the code level. Five human-verification items remain for interactive and visual confirmation in a running Electron app.
 
 ---
 
-_Verified: 2026-03-29T16:02:00Z_
+_Verified: 2026-03-29T21:15:00Z_
 _Verifier: Claude (gsd-verifier)_
