@@ -1,74 +1,125 @@
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useMixerStore } from '../../stores/mixer-store'
 import { Fader } from './Fader'
-import { PanKnob } from './PanKnob'
 import { LevelMeter } from './LevelMeter'
-import { EffectSlot } from './EffectSlot'
+import { EffectSlotList } from './EffectSlotList'
+import { EffectParamPopover } from './EffectParamPopover'
 
-/**
- * Master channel strip.
- * Visually wider than track strips, always visible at the right edge of the mixer.
- * Contains: master label, master effect inserts, pan knob, fader, level meter.
- */
 export function MasterStrip() {
   const masterVolume = useMixerStore((s) => s.masterVolume)
-  const masterPan = useMixerStore((s) => s.masterPan)
   const masterLevel = useMixerStore((s) => s.masterLevel)
   const masterEffects = useMixerStore((s) => s.masterEffects)
 
-  const setMasterVolume = useMixerStore((s) => s.setMasterVolume)
-  const setMasterPan = useMixerStore((s) => s.setMasterPan)
-  const addMasterEffect = useMixerStore((s) => s.addMasterEffect)
-  const removeMasterEffect = useMixerStore((s) => s.removeMasterEffect)
-  const bypassMasterEffect = useMixerStore((s) => s.bypassMasterEffect)
-  const reorderMasterEffect = useMixerStore((s) => s.reorderMasterEffect)
+  const [popover, setPopover] = useState<{ index: number; x: number; y: number } | null>(null)
 
-  const handleVolumeChange = useCallback(
-    (v: number) => setMasterVolume(v),
-    [setMasterVolume],
+  const handleVolumeChange = useCallback((gain: number) => {
+    useMixerStore.getState().setMasterVolume(gain)
+    window.calliope
+      .dispatchCommand({ command: 'master.setVolume', params: { volume: gain } })
+      .catch(() => {})
+  }, [])
+
+  const handleAddEffect = useCallback((effectType: string) => {
+    useMixerStore.getState().addMasterEffect(effectType)
+    window.calliope.effectInsert('master', effectType).catch(() => {})
+  }, [])
+
+  const handleRemoveEffect = useCallback((index: number) => {
+    useMixerStore.getState().removeMasterEffect(index)
+    window.calliope.effectRemove('master', index).catch(() => {})
+  }, [])
+
+  const handleBypassEffect = useCallback((index: number) => {
+    const effects = useMixerStore.getState().masterEffects
+    const slot = effects[index]
+    if (!slot) return
+    useMixerStore.getState().bypassMasterEffect(index, !slot.bypassed)
+    window.calliope.effectBypass('master', index, !slot.bypassed).catch(() => {})
+  }, [])
+
+  const handleSlotClick = useCallback(
+    (index: number) => {
+      const effects = useMixerStore.getState().masterEffects
+      const slot = effects[index]
+      if (!slot) return
+      setPopover((prev) =>
+        prev?.index === index ? null : { index, x: 80, y: 200 },
+      )
+    },
+    [],
   )
-
-  const handlePanChange = useCallback(
-    (p: number) => setMasterPan(p),
-    [setMasterPan],
-  )
-
-  const masterColor = '#ff6b6b'
 
   return (
-    <div className="flex flex-col items-center gap-1 w-[88px] min-w-[88px] bg-[#2a2a4a] rounded-md p-1.5 border border-[#4a4a6a]">
+    <div
+      style={{
+        width: 88,
+        minWidth: 88,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 4,
+        backgroundColor: '#2a2a4e',
+        borderLeft: '2px solid #6c63ff',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       {/* Master label */}
-      <div className="w-full text-center text-[11px] font-bold text-[#ff6b6b] uppercase tracking-wide">
-        Master
+      <div
+        style={{
+          width: '100%',
+          height: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: '#eeeeee',
+            userSelect: 'none',
+          }}
+        >
+          Master
+        </span>
       </div>
 
-      {/* Master effect inserts */}
-      <div className="w-full max-h-[80px] overflow-y-auto">
-        <EffectSlot
-          slots={masterEffects}
-          onAdd={(fx) => addMasterEffect(fx)}
-          onRemove={(i) => removeMasterEffect(i)}
-          onBypass={(i, b) => bypassMasterEffect(i, b)}
-          onReorder={(from, to) => reorderMasterEffect(from, to)}
-        />
-      </div>
-
-      {/* Pan knob */}
-      <PanKnob value={masterPan} onChange={handlePanChange} size={32} color={masterColor} />
-
-      {/* Fader + Level meter */}
-      <div className="flex items-end gap-1">
-        <Fader value={masterVolume} onChange={handleVolumeChange} height={140} color={masterColor} />
+      {/* Level meter + Fader side by side */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, height: 180 }}>
         <LevelMeter
-          peakL={masterLevel.peakL}
-          peakR={masterLevel.peakR}
-          height={140}
-          width={14}
+          leftLevel={masterLevel.peakL}
+          rightLevel={masterLevel.peakR}
+          leftPeak={masterLevel.peakL}
+          rightPeak={masterLevel.peakR}
+        />
+        <Fader value={masterVolume} onChange={handleVolumeChange} />
+      </div>
+
+      {/* No pan or M/S/Arm for master */}
+
+      {/* Effect slot list */}
+      <div style={{ marginTop: 8, width: '100%', flex: 1, minHeight: 0 }}>
+        <EffectSlotList
+          slots={masterEffects}
+          onAdd={handleAddEffect}
+          onRemove={handleRemoveEffect}
+          onBypass={handleBypassEffect}
+          onSlotClick={handleSlotClick}
         />
       </div>
 
-      {/* Master color strip */}
-      <div className="w-full h-[3px] rounded-full bg-[#ff6b6b]" />
+      {/* Effect param popover */}
+      {popover && masterEffects[popover.index] && (
+        <EffectParamPopover
+          trackId="master"
+          slotIndex={popover.index}
+          effectType={masterEffects[popover.index].effectType}
+          position={{ x: popover.x, y: popover.y }}
+          onClose={() => setPopover(null)}
+        />
+      )}
     </div>
   )
 }

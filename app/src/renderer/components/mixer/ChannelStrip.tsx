@@ -1,84 +1,152 @@
-import { useCallback } from 'react'
-import { useTimelineStore } from '../../stores/timeline-store'
+import { useState, useCallback } from 'react'
+import { Circle } from 'lucide-react'
 import { useMixerStore } from '../../stores/mixer-store'
-import { TRACK_COLORS } from '../../utils/colors'
+import { useTimelineStore } from '../../stores/timeline-store'
 import { Fader } from './Fader'
 import { PanKnob } from './PanKnob'
 import { LevelMeter } from './LevelMeter'
-import { EffectSlot } from './EffectSlot'
+import { EffectSlotList } from './EffectSlotList'
+import { EffectParamPopover } from './EffectParamPopover'
 import type { Track } from '../../types/timeline'
 
 interface ChannelStripProps {
   track: Track
 }
 
-/**
- * Individual mixer channel strip for a track.
- * Contains: track name, effect inserts, pan knob, fader, level meter, mute/solo buttons.
- */
 export function ChannelStrip({ track }: ChannelStripProps) {
+  const selectedTrackId = useTimelineStore((s) => s.selectedTrackId)
   const toggleMute = useTimelineStore((s) => s.toggleMute)
   const toggleSolo = useTimelineStore((s) => s.toggleSolo)
+  const toggleArm = useTimelineStore((s) => s.toggleArm)
+  const selectTrack = useTimelineStore((s) => s.selectTrack)
 
   const volume = useMixerStore((s) => s.trackVolumes[track.id] ?? 1.0)
   const pan = useMixerStore((s) => s.trackPans[track.id] ?? 0.0)
-  const levels = useMixerStore((s) => s.trackLevels[track.id] ?? { peakL: 0, peakR: 0 })
+  const level = useMixerStore((s) => s.trackLevels[track.id])
   const effects = useMixerStore((s) => s.trackEffects[track.id] ?? [])
 
-  const setTrackVolume = useMixerStore((s) => s.setTrackVolume)
-  const setTrackPan = useMixerStore((s) => s.setTrackPan)
-  const addTrackEffect = useMixerStore((s) => s.addTrackEffect)
-  const removeTrackEffect = useMixerStore((s) => s.removeTrackEffect)
-  const bypassTrackEffect = useMixerStore((s) => s.bypassTrackEffect)
-  const reorderTrackEffect = useMixerStore((s) => s.reorderTrackEffect)
+  const [popover, setPopover] = useState<{ index: number; x: number; y: number } | null>(null)
 
-  const color = TRACK_COLORS[track.colorIndex % TRACK_COLORS.length]
+  const isSelected = selectedTrackId === track.id
 
   const handleVolumeChange = useCallback(
-    (v: number) => setTrackVolume(track.id, v),
-    [track.id, setTrackVolume],
+    (gain: number) => {
+      useMixerStore.getState().setTrackVolume(track.id, gain)
+      window.calliope.setTrackVolume(track.id, gain).catch(() => {})
+    },
+    [track.id],
   )
 
   const handlePanChange = useCallback(
-    (p: number) => setTrackPan(track.id, p),
-    [track.id, setTrackPan],
+    (newPan: number) => {
+      useMixerStore.getState().setTrackPan(track.id, newPan)
+      window.calliope.setTrackPan(track.id, newPan).catch(() => {})
+    },
+    [track.id],
+  )
+
+  const handleAddEffect = useCallback(
+    (effectType: string) => {
+      useMixerStore.getState().addTrackEffect(track.id, effectType)
+      window.calliope.effectInsert(track.id, effectType).catch(() => {})
+    },
+    [track.id],
+  )
+
+  const handleRemoveEffect = useCallback(
+    (index: number) => {
+      useMixerStore.getState().removeTrackEffect(track.id, index)
+      window.calliope.effectRemove(track.id, index).catch(() => {})
+    },
+    [track.id],
+  )
+
+  const handleBypassEffect = useCallback(
+    (index: number) => {
+      const slots = useMixerStore.getState().trackEffects[track.id] ?? []
+      const slot = slots[index]
+      if (!slot) return
+      useMixerStore.getState().bypassTrackEffect(track.id, index, !slot.bypassed)
+      window.calliope.effectBypass(track.id, index, !slot.bypassed).catch(() => {})
+    },
+    [track.id],
+  )
+
+  const handleSlotClick = useCallback(
+    (index: number) => {
+      const slots = useMixerStore.getState().trackEffects[track.id] ?? []
+      const slot = slots[index]
+      if (!slot) return
+      // Position popover near the channel strip
+      setPopover((prev) =>
+        prev?.index === index ? null : { index, x: 80, y: 200 },
+      )
+    },
+    [track.id],
   )
 
   return (
-    <div className="flex flex-col items-center gap-1 w-[72px] min-w-[72px] bg-[#252542] rounded-md p-1.5 border border-[#3a3a5a]">
+    <div
+      style={{
+        width: 64,
+        minWidth: 64,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 4,
+        backgroundColor: '#252542',
+        borderRight: '1px solid #3a3a5a',
+        borderLeft: isSelected ? '2px solid #6c63ff' : '2px solid transparent',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       {/* Track name */}
       <div
-        className="w-full text-center text-[10px] truncate font-medium px-1"
-        style={{ color }}
+        style={{
+          width: '100%',
+          height: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+        }}
+        onClick={() => selectTrack(track.id)}
       >
-        {track.name}
+        <span
+          style={{
+            fontSize: 13,
+            color: '#eeeeee',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+            userSelect: 'none',
+          }}
+        >
+          {track.name}
+        </span>
       </div>
 
-      {/* Effect inserts */}
-      <div className="w-full max-h-[80px] overflow-y-auto">
-        <EffectSlot
-          slots={effects}
-          onAdd={(fx) => addTrackEffect(track.id, fx)}
-          onRemove={(i) => removeTrackEffect(track.id, i)}
-          onBypass={(i, b) => bypassTrackEffect(track.id, i, b)}
-          onReorder={(from, to) => reorderTrackEffect(track.id, from, to)}
+      {/* Level meter + Fader side by side */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, height: 180 }}>
+        <LevelMeter
+          leftLevel={level?.peakL ?? 0}
+          rightLevel={level?.peakR ?? 0}
+          leftPeak={level?.peakL ?? 0}
+          rightPeak={level?.peakR ?? 0}
         />
+        <Fader value={volume} onChange={handleVolumeChange} />
       </div>
 
       {/* Pan knob */}
-      <PanKnob value={pan} onChange={handlePanChange} size={28} color={color} />
+      <PanKnob value={pan} onChange={handlePanChange} />
 
-      {/* Fader + Level meter side by side */}
-      <div className="flex items-end gap-0.5">
-        <Fader value={volume} onChange={handleVolumeChange} height={120} color={color} />
-        <LevelMeter peakL={levels.peakL} peakR={levels.peakR} height={120} width={10} />
-      </div>
-
-      {/* Mute / Solo buttons */}
-      <div className="flex gap-1">
+      {/* M / S / Arm buttons */}
+      <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
         <button
           onClick={() => toggleMute(track.id)}
-          className={`w-6 h-5 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
+          className={`w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold transition-colors ${
             track.muted
               ? 'bg-[#f59e0b] text-[#1a1a2e]'
               : 'bg-[#3a3a5a] text-[#999999] hover:text-[#eeeeee]'
@@ -88,7 +156,7 @@ export function ChannelStrip({ track }: ChannelStripProps) {
         </button>
         <button
           onClick={() => toggleSolo(track.id)}
-          className={`w-6 h-5 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
+          className={`w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold transition-colors ${
             track.solo
               ? 'bg-[#22c55e] text-[#1a1a2e]'
               : 'bg-[#3a3a5a] text-[#999999] hover:text-[#eeeeee]'
@@ -96,10 +164,39 @@ export function ChannelStrip({ track }: ChannelStripProps) {
         >
           S
         </button>
+        <button
+          onClick={() => toggleArm(track.id)}
+          className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
+            track.armed
+              ? 'bg-[#ef4444] text-[#1a1a2e]'
+              : 'bg-[#3a3a5a] text-[#999999] hover:text-[#eeeeee]'
+          }`}
+        >
+          <Circle size={10} fill={track.armed ? '#1a1a2e' : 'none'} />
+        </button>
       </div>
 
-      {/* Color strip at bottom */}
-      <div className="w-full h-[3px] rounded-full" style={{ backgroundColor: color }} />
+      {/* Effect slot list */}
+      <div style={{ marginTop: 4, width: '100%', flex: 1, minHeight: 0 }}>
+        <EffectSlotList
+          slots={effects}
+          onAdd={handleAddEffect}
+          onRemove={handleRemoveEffect}
+          onBypass={handleBypassEffect}
+          onSlotClick={handleSlotClick}
+        />
+      </div>
+
+      {/* Effect param popover */}
+      {popover && effects[popover.index] && (
+        <EffectParamPopover
+          trackId={track.id}
+          slotIndex={popover.index}
+          effectType={effects[popover.index].effectType}
+          position={{ x: popover.x, y: popover.y }}
+          onClose={() => setPopover(null)}
+        />
+      )}
     </div>
   )
 }
