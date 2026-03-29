@@ -64,3 +64,31 @@ export function clampVolume(v: number): number {
 export function clampPan(p: number): number {
   return Math.max(-1, Math.min(1, p))
 }
+
+/**
+ * Convert fader position (0-1) to linear gain.
+ * Position 0 = silence (gain 0), position ~0.75 = 0dB (gain 1.0), position 1 = +6dB.
+ * Uses a logarithmic mapping for natural feel.
+ */
+export function faderToGain(position: number): number {
+  if (position <= 0) return 0
+  if (position >= 1) return MAX_VOLUME_LINEAR
+  // Map 0-1 to -60dB to +6dB, then convert to linear
+  const minDb = -60
+  const maxDb = 6
+  const db = minDb + position * (maxDb - minDb)
+  return dbToLinear(db)
+}
+
+/**
+ * Convert linear gain to fader position (0-1).
+ * Inverse of faderToGain.
+ */
+export function gainToFader(gain: number): number {
+  if (gain <= 0) return 0
+  if (gain >= MAX_VOLUME_LINEAR) return 1
+  const db = linearToDb(gain)
+  const minDb = -60
+  const maxDb = 6
+  return (db - minDb) / (maxDb - minDb)
+}

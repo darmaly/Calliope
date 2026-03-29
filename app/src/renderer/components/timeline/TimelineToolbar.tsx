@@ -95,6 +95,9 @@ export function TimelineToolbar() {
         Piano Roll
       </button>
 
+      {/* Separator */}
+      <div className="w-px h-5 bg-[#3a3a5a]" />
+
       {/* Mixer toggle */}
       <button
         onClick={() => useMixerStore.getState().toggleMixerVisible()}

@@ -3,6 +3,16 @@ export interface EffectSlotInfo {
   bypassed: boolean
 }
 
+export const EFFECT_TYPES = [
+  { type: 'eq', label: 'Parametric EQ' },
+  { type: 'compressor', label: 'Compressor' },
+  { type: 'reverb', label: 'Reverb' },
+  { type: 'delay', label: 'Delay' },
+  { type: 'limiter', label: 'Limiter' },
+] as const
+
+export type EffectType = (typeof EFFECT_TYPES)[number]['type']
+
 export interface LevelData {
   peakL: number
   peakR: number

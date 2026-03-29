@@ -1,95 +1,161 @@
+import { useState, useCallback } from 'react'
+import { useContextMenu } from '../../hooks/use-context-menu'
+import { ContextMenu } from '../shared/ContextMenu'
+import { EFFECT_TYPES } from '../../types/mixer'
 import type { EffectSlotInfo } from '../../types/mixer'
 
-const EFFECT_TYPES = ['eq', 'compressor', 'reverb', 'delay', 'limiter'] as const
-
 interface EffectSlotProps {
-  slots: EffectSlotInfo[]
+  slot: EffectSlotInfo | null
+  index: number
   onAdd: (effectType: string) => void
-  onRemove: (index: number) => void
-  onBypass: (index: number, bypassed: boolean) => void
-  onReorder: (fromIndex: number, toIndex: number) => void
-  maxSlots?: number
+  onRemove: () => void
+  onBypass: () => void
+  onClick: () => void
 }
 
-/**
- * Effect insert chain display for a channel strip.
- * Shows a list of effect slots with add/remove/bypass controls.
- */
-export function EffectSlot({
-  slots,
-  onAdd,
-  onRemove,
-  onBypass,
-  onReorder,
-  maxSlots = 8,
-}: EffectSlotProps) {
-  return (
-    <div className="flex flex-col gap-0.5 w-full">
-      {/* Existing slots */}
-      {slots.map((slot, index) => (
-        <div
-          key={`${slot.effectType}-${index}`}
-          className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] ${
-            slot.bypassed ? 'bg-[#2a2a4a] text-[#666666]' : 'bg-[#3a3a5a] text-[#cccccc]'
-          }`}
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', String(index))
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault()
-            const fromStr = e.dataTransfer.getData('text/plain')
-            const from = parseInt(fromStr, 10)
-            if (!isNaN(from) && from !== index) {
-              onReorder(from, index)
-            }
-          }}
-        >
-          {/* Effect name */}
-          <span className="flex-1 truncate uppercase">{slot.effectType}</span>
-          {/* Bypass toggle */}
-          <button
-            className={`w-3 h-3 rounded-full border ${
-              slot.bypassed
-                ? 'border-[#666666] bg-transparent'
-                : 'border-[#22c55e] bg-[#22c55e]'
-            }`}
-            onClick={() => onBypass(index, !slot.bypassed)}
-            title={slot.bypassed ? 'Enable' : 'Bypass'}
-          />
-          {/* Remove button */}
-          <button
-            className="text-[#999999] hover:text-[#ef4444] text-[8px] leading-none"
-            onClick={() => onRemove(index)}
-            title="Remove"
-          >
-            x
-          </button>
-        </div>
-      ))}
+function effectLabel(effectType: string): string {
+  const found = EFFECT_TYPES.find((e) => e.type === effectType)
+  return found ? found.label : effectType
+}
 
-      {/* Add button */}
-      {slots.length < maxSlots && (
-        <div className="relative group">
-          <button
-            className="w-full text-[9px] text-[#666666] hover:text-[#999999] border border-dashed border-[#3a3a5a] hover:border-[#666666] rounded px-1 py-0.5 transition-colors"
+export function EffectSlot({ slot, index: _index, onAdd, onRemove, onBypass, onClick }: EffectSlotProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const contextMenu = useContextMenu()
+
+  const handleEmptyClick = useCallback(() => {
+    setDropdownOpen((prev) => !prev)
+  }, [])
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!slot) return
+      contextMenu.show(e, [
+        {
+          label: slot.bypassed ? 'Enable Effect' : 'Bypass Effect',
+          action: onBypass,
+        },
+        {
+          label: 'Remove Effect',
+          action: onRemove,
+          destructive: true,
+        },
+      ])
+    },
+    [slot, contextMenu, onBypass, onRemove],
+  )
+
+  if (!slot) {
+    return (
+      <div
+        style={{
+          width: 56,
+          height: 24,
+          position: 'relative',
+          cursor: 'pointer',
+        }}
+        onClick={handleEmptyClick}
+      >
+        <span style={{ fontSize: 10, color: '#666666', userSelect: 'none' }}>Add Effect</span>
+        {dropdownOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 24,
+              left: 0,
+              width: 120,
+              backgroundColor: '#252542',
+              border: '1px solid #3a3a5a',
+              borderRadius: 4,
+              zIndex: 30,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            }}
           >
-            + FX
-          </button>
-          {/* Dropdown on hover */}
-          <div className="absolute bottom-full left-0 w-full bg-[#252542] border border-[#3a3a5a] rounded shadow-lg hidden group-hover:block z-50">
-            {EFFECT_TYPES.map((fx) => (
+            {EFFECT_TYPES.map((et) => (
               <button
-                key={fx}
-                className="block w-full text-left px-2 py-1 text-[9px] text-[#cccccc] hover:bg-[#3a3a5a] uppercase"
-                onClick={() => onAdd(fx)}
+                key={et.type}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  color: '#eeeeee',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  ;(e.target as HTMLElement).style.backgroundColor = '#2a2a4a'
+                }}
+                onMouseLeave={(e) => {
+                  ;(e.target as HTMLElement).style.backgroundColor = 'transparent'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAdd(et.type)
+                  setDropdownOpen(false)
+                }}
               >
-                {fx}
+                {et.label}
               </button>
             ))}
           </div>
-        </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        width: 56,
+        height: 24,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        cursor: 'pointer',
+      }}
+      onClick={onClick}
+      onContextMenu={handleContextMenu}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          color: slot.bypassed ? '#666666' : '#eeeeee',
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+        }}
+      >
+        {effectLabel(slot.effectType)}
+      </span>
+
+      {/* Bypass toggle dot */}
+      <button
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          backgroundColor: slot.bypassed ? 'transparent' : '#22c55e',
+          border: `2px solid ${slot.bypassed ? '#3a3a5a' : '#22c55e'}`,
+          cursor: 'pointer',
+          padding: 0,
+          flexShrink: 0,
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onBypass()
+        }}
+      />
+
+      {contextMenu.visible && (
+        <ContextMenu
+          items={contextMenu.items}
+          position={contextMenu.position}
+          onClose={contextMenu.close}
+        />
       )}
     </div>
   )
