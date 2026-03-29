@@ -43,6 +43,9 @@ public:
     // Insert chain access (Phase 5)
     InsertChain& getInsertChain(const juce::String& trackId);
 
+    // Metering (Phase 8)
+    AudioGraph::AllMeterLevels getMeterLevels() const;
+
     // Dynamic effect parameter registration/unregistration
     void registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect);
     void unregisterEffectParameters(const juce::String& trackId, int slotIndex);

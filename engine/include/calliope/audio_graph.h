@@ -2,6 +2,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <string>
+#include <vector>
 #include "calliope/transport.h"
 #include "calliope/master_bus.h"
 #include "calliope/metronome.h"
@@ -46,6 +48,17 @@ public:
     // Insert chain access (Phase 5)
     InsertChainProcessor& getInsertChainProcessor(const juce::String& trackId);
     InsertChain& getInsertChain(const juce::String& trackId);
+
+    // Metering (Phase 8)
+    struct AllMeterLevels {
+        struct TrackMeter {
+            std::string trackId;
+            float rmsLeft, rmsRight, peakLeft, peakRight;
+        };
+        std::vector<TrackMeter> tracks;
+        TrackMeter master;
+    };
+    AllMeterLevels getMeterLevels() const;
 
 private:
     juce::AudioDeviceManager deviceManager_;
