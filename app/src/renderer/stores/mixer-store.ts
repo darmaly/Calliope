@@ -7,6 +7,7 @@ const DEFAULT_LEVEL: LevelData = { peakL: 0, peakR: 0 }
 export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
   // Default state
   mixerVisible: false,
+  mixerHeight: 300,
   trackVolumes: {},
   trackPans: {},
   trackLevels: {},
@@ -140,6 +141,9 @@ export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
       )
       return { masterEffects: updated }
     }),
+
+  // Panel height
+  setMixerHeight: (height: number) => set({ mixerHeight: height }),
 
   // Cleanup
   removeTrackData: (trackId: string) =>
