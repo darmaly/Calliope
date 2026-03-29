@@ -68,6 +68,14 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("loadProject",
         Napi::Function::New(env, LoadProject));
 
+    // Phase 9 — Export
+    exports.Set("exportAudio",
+        Napi::Function::New(env, ExportAudio));
+    exports.Set("exportStems",
+        Napi::Function::New(env, ExportStems));
+    exports.Set("loadProjectState",
+        Napi::Function::New(env, LoadProjectState));
+
     return exports;
 }
 

@@ -9,6 +9,7 @@
 #include "calliope/project_state.h"
 #include "calliope/project_serializer.h"
 #include "calliope/parameter_registry.h"
+#include "calliope/audio_exporter.h"
 #include <thread>
 #include <memory>
 
@@ -1024,6 +1025,268 @@ Napi::Value LoadProject(const Napi::CallbackInfo& info) {
 
             // DrumMachine volume
             setParam("drumMachine.volume", static_cast<double>(state.drumMachine.volume));
+        }
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+// Phase 9 — Export
+
+Napi::Value ExportAudio(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 5) {
+        Napi::TypeError::New(env, "ExportAudio requires at least 5 arguments").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsString() || !info[1].IsString() || !info[2].IsNumber() ||
+        !info[3].IsNumber() || !info[4].IsString()) {
+        Napi::TypeError::New(env, "ExportAudio: invalid argument types").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string outputPath = info[0].As<Napi::String>().Utf8Value();
+    std::string formatStr = info[1].As<Napi::String>().Utf8Value();
+    int mp3Bitrate = info[2].As<Napi::Number>().Int32Value();
+    double totalBeats = info[3].As<Napi::Number>().DoubleValue();
+    std::string midiEventsJson = info[4].As<Napi::String>().Utf8Value();
+
+    // Parse format string to enum
+    calliope::ExportFormat format = calliope::ExportFormat::WAV_16;
+    if (formatStr == "wav24") format = calliope::ExportFormat::WAV_24;
+    else if (formatStr == "mp3") format = calliope::ExportFormat::MP3;
+    else if (formatStr == "flac") format = calliope::ExportFormat::FLAC;
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    // Create TSFN for resolving the promise on the main thread
+    auto resolveTsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "ExportAudioResolve",
+        0, 1
+    );
+
+    // Create TSFN for progress callback if provided
+    Napi::ThreadSafeFunction progressTsfn;
+    bool hasProgress = info.Length() >= 6 && info[5].IsFunction();
+    if (hasProgress) {
+        progressTsfn = Napi::ThreadSafeFunction::New(
+            env,
+            info[5].As<Napi::Function>(),
+            "ExportAudioProgress",
+            0, 1
+        );
+    }
+
+    std::thread([deferred, resolveTsfn, progressTsfn, hasProgress,
+                 outputPath, format, mp3Bitrate, totalBeats, midiEventsJson]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto& exporter = engine.getAudioExporter();
+
+        // Parse MIDI events
+        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
+            juce::String(midiEventsJson));
+
+        calliope::ExportOptions options;
+        options.outputPath = outputPath;
+        options.format = format;
+        options.mp3Bitrate = mp3Bitrate;
+        options.totalBeats = totalBeats;
+        options.midiEvents = std::move(midiEvents);
+
+        // Progress lambda that calls back to JS via TSFN
+        calliope::ProgressCallback progressCb = nullptr;
+        if (hasProgress) {
+            progressCb = [progressTsfn](float pct) {
+                float* pctCopy = new float(pct);
+                progressTsfn.BlockingCall(pctCopy, [](Napi::Env env, Napi::Function fn, float* val) {
+                    fn.Call({Napi::Number::New(env, static_cast<double>(*val))});
+                    delete val;
+                });
+            };
+        }
+
+        bool success = exporter.exportMix(options, progressCb);
+
+        if (hasProgress) {
+            progressTsfn.Release();
+        }
+
+        resolveTsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        resolveTsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value ExportStems(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "ExportStems requires at least 3 arguments").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsString() || !info[1].IsNumber() || !info[2].IsString()) {
+        Napi::TypeError::New(env, "ExportStems: invalid argument types").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string outputDir = info[0].As<Napi::String>().Utf8Value();
+    double totalBeats = info[1].As<Napi::Number>().DoubleValue();
+    std::string midiEventsJson = info[2].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto resolveTsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "ExportStemsResolve",
+        0, 1
+    );
+
+    Napi::ThreadSafeFunction progressTsfn;
+    bool hasProgress = info.Length() >= 4 && info[3].IsFunction();
+    if (hasProgress) {
+        progressTsfn = Napi::ThreadSafeFunction::New(
+            env,
+            info[3].As<Napi::Function>(),
+            "ExportStemsProgress",
+            0, 1
+        );
+    }
+
+    std::thread([deferred, resolveTsfn, progressTsfn, hasProgress,
+                 outputDir, totalBeats, midiEventsJson]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto& exporter = engine.getAudioExporter();
+
+        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
+            juce::String(midiEventsJson));
+
+        calliope::StemExportOptions options;
+        options.outputDir = outputDir;
+        options.totalBeats = totalBeats;
+        options.midiEvents = std::move(midiEvents);
+
+        calliope::ProgressCallback progressCb = nullptr;
+        if (hasProgress) {
+            progressCb = [progressTsfn](float pct) {
+                float* pctCopy = new float(pct);
+                progressTsfn.BlockingCall(pctCopy, [](Napi::Env env, Napi::Function fn, float* val) {
+                    fn.Call({Napi::Number::New(env, static_cast<double>(*val))});
+                    delete val;
+                });
+            };
+        }
+
+        bool success = exporter.exportStems(options, progressCb);
+
+        if (hasProgress) {
+            progressTsfn.Release();
+        }
+
+        resolveTsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        resolveTsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value LoadProjectState(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected JSON string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string jsonString = info[0].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "LoadProjectState",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn, jsonString]() {
+        bool success = false;
+
+        auto parsed = juce::JSON::parse(juce::String(jsonString));
+        if (auto* obj = parsed.getDynamicObject()) {
+            auto& engine = calliope::Engine::getInstance();
+            auto& registry = engine.getParameterRegistry();
+
+            auto setParam = [&registry](const juce::String& id, double value) {
+                const auto* def = registry.getParameter(id);
+                if (def) def->setter(juce::var(value));
+            };
+
+            // Restore transport settings
+            if (obj->hasProperty("transport")) {
+                auto transport = obj->getProperty("transport");
+                if (auto* tObj = transport.getDynamicObject()) {
+                    if (tObj->hasProperty("bpm"))
+                        engine.setBpm(static_cast<double>(tObj->getProperty("bpm")));
+                    if (tObj->hasProperty("timeSigNumerator") && tObj->hasProperty("timeSigDenominator"))
+                        engine.setTimeSignature(
+                            static_cast<int>(tObj->getProperty("timeSigNumerator")),
+                            static_cast<int>(tObj->getProperty("timeSigDenominator")));
+                    if (tObj->hasProperty("loopStartBeat") && tObj->hasProperty("loopEndBeat"))
+                        engine.setLoopRegion(
+                            static_cast<double>(tObj->getProperty("loopStartBeat")),
+                            static_cast<double>(tObj->getProperty("loopEndBeat")),
+                            static_cast<bool>(tObj->getProperty("looping")));
+                }
+            }
+
+            // Restore metronome settings
+            if (obj->hasProperty("metronome")) {
+                auto metronome = obj->getProperty("metronome");
+                if (auto* mObj = metronome.getDynamicObject()) {
+                    if (mObj->hasProperty("enabled"))
+                        engine.setMetronomeEnabled(static_cast<bool>(mObj->getProperty("enabled")));
+                    if (mObj->hasProperty("volume"))
+                        engine.setMetronomeVolume(static_cast<double>(mObj->getProperty("volume")));
+                }
+            }
+
+            // Restore master bus volume
+            if (obj->hasProperty("masterBus")) {
+                auto masterBus = obj->getProperty("masterBus");
+                if (auto* mbObj = masterBus.getDynamicObject()) {
+                    if (mbObj->hasProperty("volume"))
+                        engine.getAudioGraph().getMasterBus().masterVolume.store(
+                            static_cast<float>(static_cast<double>(mbObj->getProperty("volume"))));
+                }
+            }
+
+            // Restore instrument parameters via registry
+            if (obj->hasProperty("parameters")) {
+                auto params = obj->getProperty("parameters");
+                if (auto* pObj = params.getDynamicObject()) {
+                    for (const auto& prop : pObj->getProperties()) {
+                        setParam(prop.name.toString(), static_cast<double>(prop.value));
+                    }
+                }
+            }
+
+            success = true;
         }
 
         tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
