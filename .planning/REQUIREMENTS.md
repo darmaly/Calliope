@@ -51,20 +51,20 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Mixer
 
-- [x] **MIX-01**: Per-track channel strip with volume fader, pan knob, mute, and solo
-- [x] **MIX-02**: Master channel strip with volume fader and insert effect chain
-- [x] **MIX-03**: Per-track insert effect chain with add, remove, reorder, and bypass per effect
-- [x] **MIX-04**: Visual level meters on each channel strip showing real-time signal level
+- [ ] **MIX-01**: Per-track channel strip with volume fader, pan knob, mute, and solo
+- [ ] **MIX-02**: Master channel strip with volume fader and insert effect chain
+- [ ] **MIX-03**: Per-track insert effect chain with add, remove, reorder, and bypass per effect
+- [ ] **MIX-04**: Visual level meters on each channel strip showing real-time signal level
 
 ### Project Management
 
-- [ ] **PROJ-01**: Project save to file and load from file with full state restoration
-- [ ] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
+- [x] **PROJ-01**: Project save to file and load from file with full state restoration
+- [x] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
 - [x] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
-- [x] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
-- [x] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
-- [x] **PROJ-06**: Export final mix to FLAC (lossless)
-- [x] **PROJ-07**: Export individual track stems as separate WAV files
+- [ ] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
+- [ ] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
+- [ ] **PROJ-06**: Export final mix to FLAC (lossless)
+- [ ] **PROJ-07**: Export individual track stems as separate WAV files
 
 ### Architecture (AI-Ready Foundation)
 
@@ -177,16 +177,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PR-03 | Phase 7 | Complete |
 | PR-04 | Phase 7 | Complete |
 | PR-05 | Phase 7 | Complete |
-| MIX-01 | Phase 8 | Complete |
-| MIX-02 | Phase 8 | Complete |
-| MIX-03 | Phase 8 | Complete |
-| MIX-04 | Phase 8 | Complete |
-| PROJ-01 | Phase 9 | Pending |
-| PROJ-02 | Phase 9 | Pending |
-| PROJ-04 | Phase 9 | Complete |
-| PROJ-05 | Phase 9 | Complete |
-| PROJ-06 | Phase 9 | Complete |
-| PROJ-07 | Phase 9 | Complete |
+| MIX-01 | Phase 8 | Pending |
+| MIX-02 | Phase 8 | Pending |
+| MIX-03 | Phase 8 | Pending |
+| MIX-04 | Phase 8 | Pending |
+| PROJ-01 | Phase 9 | Complete |
+| PROJ-02 | Phase 9 | Complete |
+| PROJ-04 | Phase 9 | Pending |
+| PROJ-05 | Phase 9 | Pending |
+| PROJ-06 | Phase 9 | Pending |
+| PROJ-07 | Phase 9 | Pending |
 | UI-02 | Phase 10 | Pending |
 | UI-03 | Phase 10 | Pending |
 | UI-04 | Phase 10 | Pending |

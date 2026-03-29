@@ -81,40 +81,23 @@ contextBridge.exposeInMainWorld('calliope', {
       params: { trackId, position, bypassed }
     }),
 
-  // Phase 8 — Mixer
-  getMeterLevels: () => ipcRenderer.invoke('engine:meter:getLevels'),
-  setTrackVolume: (trackId: string, volume: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'parameter.set',
-      params: { id: `track.${trackId}.volume`, value: volume }
-    }),
-  setTrackPan: (trackId: string, pan: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'parameter.set',
-      params: { id: `track.${trackId}.pan`, value: pan }
-    }),
-
   onCommandEvent: (
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
   removeCommandEventListener: () => ipcRenderer.removeAllListeners('command:event'),
 
-  // Phase 9 — Export
-  exportAudio: (params: {
-    outputPath: string
-    format: string
-    mp3Bitrate: number
-    totalBeats: number
-    midiEventsJson: string
-  }) => ipcRenderer.invoke('project:export', params),
-  exportStems: (params: {
-    outputDir: string
-    totalBeats: number
-    midiEventsJson: string
-  }) => ipcRenderer.invoke('project:exportStems', params),
-  loadProjectState: (json: string) => ipcRenderer.invoke('project:loadState', json),
-  onExportProgress: (callback: (percent: number) => void) =>
-    ipcRenderer.on('project:exportProgress', (_event, percent) => callback(percent)),
-  removeExportProgressListener: () =>
-    ipcRenderer.removeAllListeners('project:exportProgress'),
+  // Phase 9 — Project save/load
+  projectSave: (filePath?: string) => ipcRenderer.invoke('project:save', filePath),
+  projectSaveAs: () => ipcRenderer.invoke('project:saveAs'),
+  projectLoad: () => ipcRenderer.invoke('project:load'),
+  projectNew: () => ipcRenderer.invoke('project:new'),
+  projectGetInfo: () => ipcRenderer.invoke('project:getInfo'),
+  projectSetAutosave: (enabled: boolean, intervalMs?: number) =>
+    ipcRenderer.invoke('project:setAutosave', enabled, intervalMs),
+  projectGetAutosaveConfig: () => ipcRenderer.invoke('project:getAutosaveConfig'),
+  projectMarkDirty: () => ipcRenderer.invoke('project:markDirty'),
+  onProjectAutosaved: (
+    callback: (data: { filePath: string; timestamp: string }) => void
+  ) => ipcRenderer.on('project:autosaved', (_event, data) => callback(data)),
+  removeProjectAutosavedListener: () => ipcRenderer.removeAllListeners('project:autosaved'),
 })

@@ -51,9 +51,6 @@ interface NativeAddon {
   getTransportState(): Promise<TransportState>
   getAudioConfig(): Promise<AudioConfig>
 
-  // Phase 8 — Metering
-  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
-
   // Phase 3 — Command dispatch
   // Phase 4 — Instrument command types (dispatched via dispatchCommand):
   // { command: 'instrument.noteOn', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number, velocity: number } }
@@ -74,22 +71,9 @@ interface NativeAddon {
   ): void
   unsubscribeFromEvents(): void
 
-  // Phase 9 — Export
-  exportAudio(
-    outputPath: string,
-    format: string,
-    mp3Bitrate: number,
-    totalBeats: number,
-    midiEventsJson: string,
-    onProgress?: (percent: number) => void
-  ): Promise<boolean>
-  exportStems(
-    outputDir: string,
-    totalBeats: number,
-    midiEventsJson: string,
-    onProgress?: (percent: number) => void
-  ): Promise<boolean>
-  loadProjectState(jsonString: string): Promise<boolean>
+  // Phase 9 — Project save/load
+  saveProject(filePath: string): Promise<boolean>
+  loadProject(filePath: string): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {

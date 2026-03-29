@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Effects Processing** - Built-in effects chain with per-track insert routing (completed 2026-03-28)
 - [x] **Phase 6: Timeline & Arrangement** - Multi-track timeline view with clip management and arrangement editing (completed 2026-03-28)
 - [x] **Phase 7: Piano Roll** - MIDI note editor with drawing, editing, velocity, and quantize (completed 2026-03-28)
-- [x] **Phase 8: Mixer** - Channel strip mixer with volume, pan, mute/solo, effect inserts, and level meters (completed 2026-03-29)
+- [ ] **Phase 8: Mixer** - Channel strip mixer with volume, pan, mute/solo, effect inserts, and level meters
 - [ ] **Phase 9: Project Management & Export** - Save/load, autosave, and export to WAV/MP3/FLAC/stems
 - [ ] **Phase 10: Application Integration** - Unified layout, waveform rendering, transport bar, and keyboard shortcuts
 
@@ -146,12 +146,7 @@ Plans:
   2. Master channel strip has volume fader and insert effect chain
   3. Per-track insert chain supports add, remove, reorder, and bypass per effect
   4. Real-time level meters display signal level on each channel strip
-**Plans:** 4/4 plans complete
-Plans:
-- [x] 08-01-PLAN.md -- Mixer types, Zustand store, helper utilities with tests
-- [x] 08-02-PLAN.md -- C++ meter data pipeline, bridge, IPC, preload wiring
-- [x] 08-03-PLAN.md -- Mixer UI components, channel strips, App.tsx integration
-- [x] 08-04-PLAN.md -- Gap closure: effect slot drag-and-drop reorder, mixer panel resize
+**Plans:** TBD
 **UI hint**: yes
 
 ### Phase 9: Project Management & Export
@@ -163,11 +158,9 @@ Plans:
   2. Autosave triggers at a configurable interval (default every 2 minutes)
   3. Final mix exports to WAV (16/24-bit), MP3 (configurable bitrate), and FLAC
   4. Individual track stems export as separate WAV files
-**Plans:** 1/3 plans executed
+**Plans:** 1/TBD plans executed
 Plans:
-- [ ] 09-01-PLAN.md -- Save/load with full state restoration, autosave, dirty tracking, unsaved changes protection
-- [x] 09-02-PLAN.md -- C++ AudioExporter with offline bounce, WAV/FLAC/MP3 encoding, stem export, bridge functions
-- [ ] 09-03-PLAN.md -- Export UI dialog with format selection, progress bar, toast notifications, human verify
+- [x] 09-01-PLAN.md -- Project save/load with versioned JSON serialization, autosave timer, dirty tracking
 
 ### Phase 10: Application Integration
 **Goal**: All panels unite into a cohesive DAW workspace with professional navigation, rendering, and shortcuts
@@ -197,6 +190,6 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 5. Effects Processing | 3/3 | Complete   | 2026-03-28 |
 | 6. Timeline & Arrangement | 4/4 | Complete   | 2026-03-28 |
 | 7. Piano Roll | 3/3 | Complete   | 2026-03-28 |
-| 8. Mixer | 4/4 | Complete   | 2026-03-29 |
-| 9. Project Management & Export | 1/3 | In Progress|  |
+| 8. Mixer | 0/TBD | Not started | - |
+| 9. Project Management & Export | 1/TBD | In progress | - |
 | 10. Application Integration | 0/TBD | Not started | - |
