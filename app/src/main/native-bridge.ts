@@ -73,6 +73,23 @@ interface NativeAddon {
     callback: (event: { type: string; command: string; data: string }) => void
   ): void
   unsubscribeFromEvents(): void
+
+  // Phase 9 — Export
+  exportAudio(
+    outputPath: string,
+    format: string,
+    mp3Bitrate: number,
+    totalBeats: number,
+    midiEventsJson: string,
+    onProgress?: (percent: number) => void
+  ): Promise<boolean>
+  exportStems(
+    outputDir: string,
+    totalBeats: number,
+    midiEventsJson: string,
+    onProgress?: (percent: number) => void
+  ): Promise<boolean>
+  loadProjectState(jsonString: string): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {

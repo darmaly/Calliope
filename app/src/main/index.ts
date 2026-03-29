@@ -130,6 +130,60 @@ ipcMain.handle('command:getParameterIds', async () => {
   return await native.getParameterIds()
 })
 
+// Phase 9 — Export
+ipcMain.handle(
+  'project:export',
+  async (_event, params: {
+    outputPath: string
+    format: string
+    mp3Bitrate: number
+    totalBeats: number
+    midiEventsJson: string
+  }) => {
+    return await native.exportAudio(
+      params.outputPath,
+      params.format,
+      params.mp3Bitrate,
+      params.totalBeats,
+      params.midiEventsJson,
+      (percent: number) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          win.webContents.send('project:exportProgress', percent)
+        }
+      }
+    )
+  }
+)
+
+ipcMain.handle(
+  'project:exportStems',
+  async (_event, params: {
+    outputDir: string
+    totalBeats: number
+    midiEventsJson: string
+  }) => {
+    return await native.exportStems(
+      params.outputDir,
+      params.totalBeats,
+      params.midiEventsJson,
+      (percent: number) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          win.webContents.send('project:exportProgress', percent)
+        }
+      }
+    )
+  }
+)
+
+ipcMain.handle(
+  'project:loadState',
+  async (_event, jsonString: string) => {
+    return await native.loadProjectState(jsonString)
+  }
+)
+
 // Subscribe to engine events and forward to renderer windows
 let eventSubscribed = false
 function subscribeToEngineEvents(): void {
