@@ -40,3 +40,8 @@ Napi::Value GetProjectState(const Napi::CallbackInfo& info);
 Napi::Value GetParameterIds(const Napi::CallbackInfo& info);
 Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info);
 Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info);
+
+// Phase 9 — Export
+Napi::Value ExportAudio(const Napi::CallbackInfo& info);
+Napi::Value ExportStems(const Napi::CallbackInfo& info);
+Napi::Value LoadProjectState(const Napi::CallbackInfo& info);

@@ -1,6 +1,7 @@
 #include <napi.h>
 #include "bridge.h"
 #include "calliope/engine.h"
+#include "calliope/audio_exporter.h"
 #include "calliope/command_dispatcher.h"
 #include "calliope/commands/transport_commands.h"
 #include "calliope/commands/parameter_commands.h"
@@ -938,4 +939,193 @@ Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
     }
 
     return env.Undefined();
+}
+
+// ============================================================================
+// Phase 9 — Export
+// ============================================================================
+
+Napi::Value ExportAudio(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 5) {
+        Napi::TypeError::New(env, "Expected: outputPath, format, mp3Bitrate, totalBeats, midiEventsJson [, progressCallback]")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string outputPath = info[0].As<Napi::String>().Utf8Value();
+    std::string format = info[1].As<Napi::String>().Utf8Value();
+    int mp3Bitrate = info[2].As<Napi::Number>().Int32Value();
+    double totalBeats = info[3].As<Napi::Number>().DoubleValue();
+    std::string midiEventsJson = info[4].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "ExportAudio",
+        0, 1
+    );
+
+    // Optional progress callback TSFN
+    bool hasProgress = info.Length() > 5 && info[5].IsFunction();
+    Napi::ThreadSafeFunction progressTsfn;
+    if (hasProgress) {
+        progressTsfn = Napi::ThreadSafeFunction::New(
+            env,
+            info[5].As<Napi::Function>(),
+            "ExportAudioProgress",
+            0, 1
+        );
+    }
+
+    std::thread([deferred, tsfn, progressTsfn, hasProgress,
+                 outputPath, format, mp3Bitrate, totalBeats, midiEventsJson]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto& exporter = engine.getAudioExporter();
+
+        // Parse MIDI events
+        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
+            juce::String(midiEventsJson));
+
+        // Build export options
+        calliope::ExportOptions opts;
+        opts.outputPath = outputPath;
+        opts.mp3Bitrate = mp3Bitrate;
+        opts.totalBeats = totalBeats;
+        opts.midiEvents = midiEvents;
+
+        if (format == "wav16") opts.format = calliope::ExportFormat::WAV_16;
+        else if (format == "wav24") opts.format = calliope::ExportFormat::WAV_24;
+        else if (format == "mp3") opts.format = calliope::ExportFormat::MP3;
+        else if (format == "flac") opts.format = calliope::ExportFormat::FLAC;
+
+        // Progress callback
+        calliope::ProgressCallback progressCb = nullptr;
+        if (hasProgress) {
+            progressCb = [&progressTsfn](float pct) {
+                progressTsfn.BlockingCall([pct](Napi::Env env, Napi::Function callback) {
+                    callback.Call({ Napi::Number::New(env, pct) });
+                });
+            };
+        }
+
+        bool success = exporter.exportMix(opts, progressCb);
+
+        if (hasProgress) {
+            progressTsfn.Release();
+        }
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value ExportStems(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "Expected: outputDir, totalBeats, midiEventsJson [, progressCallback]")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string outputDir = info[0].As<Napi::String>().Utf8Value();
+    double totalBeats = info[1].As<Napi::Number>().DoubleValue();
+    std::string midiEventsJson = info[2].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "ExportStems",
+        0, 1
+    );
+
+    bool hasProgress = info.Length() > 3 && info[3].IsFunction();
+    Napi::ThreadSafeFunction progressTsfn;
+    if (hasProgress) {
+        progressTsfn = Napi::ThreadSafeFunction::New(
+            env,
+            info[3].As<Napi::Function>(),
+            "ExportStemsProgress",
+            0, 1
+        );
+    }
+
+    std::thread([deferred, tsfn, progressTsfn, hasProgress,
+                 outputDir, totalBeats, midiEventsJson]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto& exporter = engine.getAudioExporter();
+
+        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
+            juce::String(midiEventsJson));
+
+        calliope::StemExportOptions opts;
+        opts.outputDir = outputDir;
+        opts.totalBeats = totalBeats;
+        opts.midiEvents = midiEvents;
+
+        calliope::ProgressCallback progressCb = nullptr;
+        if (hasProgress) {
+            progressCb = [&progressTsfn](float pct) {
+                progressTsfn.BlockingCall([pct](Napi::Env env, Napi::Function callback) {
+                    callback.Call({ Napi::Number::New(env, pct) });
+                });
+            };
+        }
+
+        bool success = exporter.exportStems(opts, progressCb);
+
+        if (hasProgress) {
+            progressTsfn.Release();
+        }
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value LoadProjectState(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected JSON string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string jsonStr = info[0].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "LoadProjectState",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn, jsonStr]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto state = engine.getProjectState();
+        bool success = state.fromJson(juce::String(jsonStr));
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
 }
