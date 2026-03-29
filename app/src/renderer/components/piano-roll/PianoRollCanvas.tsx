@@ -6,7 +6,6 @@ import { useShallow } from 'zustand/shallow'
 import { PianoKeyboard, KEYBOARD_WIDTH } from './PianoKeyboard'
 import { NoteGrid } from './NoteGrid'
 import { NoteRect } from './NoteRect'
-import { VelocityLane } from './VelocityLane'
 import { PianoRollPlayhead } from './PianoRollPlayhead'
 import { pixelToBeat, snapToBeat, beatToPixel } from '../../utils/beat-math'
 import {
@@ -18,7 +17,6 @@ import {
   copyNotes,
   pasteNotes,
   cutNotes,
-  scaleSelectedVelocities,
 } from '../../utils/note-operations'
 import { useContextMenu } from '../../hooks/use-context-menu'
 import { ContextMenu } from '../shared/ContextMenu'
@@ -36,7 +34,7 @@ const MAX_ROW_HEIGHT = 32
 const EDGE_THRESHOLD = 6
 const MIN_DRAG_DISTANCE = 4
 
-type DragMode = 'none' | 'create' | 'select' | 'move' | 'resize-left' | 'resize-right' | 'velocity'
+type DragMode = 'none' | 'create' | 'select' | 'move' | 'resize-left' | 'resize-right'
 
 interface DragState {
   mode: DragMode
@@ -54,7 +52,7 @@ interface DragState {
 function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
   const app = useApplication()
 
-  const { scrollX, scrollY, noteRowHeight, notes, selectedNoteIds, velocityLaneVisible, velocityLaneHeight } =
+  const { scrollX, scrollY, noteRowHeight, notes, selectedNoteIds } =
     usePianoRollStore(
       useShallow((s) => ({
         scrollX: s.scrollX,
@@ -62,8 +60,6 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
         noteRowHeight: s.noteRowHeight,
         notes: s.notes,
         selectedNoteIds: s.selectedNoteIds,
-        velocityLaneVisible: s.velocityLaneVisible,
-        velocityLaneHeight: s.velocityLaneHeight,
       })),
     )
 
@@ -156,11 +152,6 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
     return () => el.removeEventListener('wheel', handleWheel)
   }, [containerRef, setScrollX, setScrollY, setNoteRowHeight, setPixelsPerBeat])
 
-  // Calculate area for velocity lane
-  const noteAreaHeight = velocityLaneVisible
-    ? size.height - velocityLaneHeight
-    : size.height
-
   const noteList = Object.values(notes)
 
   return (
@@ -173,7 +164,7 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
         y={-scrollY}
       >
         <PianoKeyboard
-          viewportHeight={noteAreaHeight}
+          viewportHeight={size.height}
           scrollY={scrollY}
           noteRowHeight={noteRowHeight}
         />
@@ -189,7 +180,7 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
       >
         <NoteGrid
           viewportWidth={size.width - KEYBOARD_WIDTH}
-          viewportHeight={noteAreaHeight}
+          viewportHeight={size.height}
           scrollX={scrollX}
           scrollY={scrollY}
         />
@@ -209,18 +200,6 @@ function CanvasContent({ containerRef, trackColorHex }: PianoRollCanvasProps) {
         </pixiContainer>
       </pixiContainer>
 
-      {/* Velocity lane — scrolls horizontally only, fixed vertical position */}
-      {velocityLaneVisible && noteAreaHeight > 0 && velocityLaneHeight > 0 && (
-        <pixiContainer x={-scrollX + KEYBOARD_WIDTH} y={noteAreaHeight}>
-          <VelocityLane
-            viewportWidth={size.width - KEYBOARD_WIDTH}
-            laneHeight={velocityLaneHeight}
-            scrollX={scrollX}
-            trackColorHex={trackColorHex}
-            laneY={0}
-          />
-        </pixiContainer>
-      )}
     </>
   )
 }
@@ -237,7 +216,6 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
   })
 
   const [ghost, setGhost] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
-  const [velocityTooltip, setVelocityTooltip] = useState<{ x: number; y: number; value: number } | null>(null)
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
   const selectNote = usePianoRollStore((s) => s.selectNote)
@@ -285,32 +263,6 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
     [],
   )
 
-  /**
-   * Find a note whose velocity bar occupies the given x position in the velocity lane.
-   */
-  const findVelocityBarAt = useCallback(
-    (px: number): string | null => {
-      const prState = usePianoRollStore.getState()
-      const tlState = useTimelineStore.getState()
-      const { notes, scrollX } = prState
-      const { pixelsPerBeat } = tlState
-
-      const gridPx = px - KEYBOARD_WIDTH
-      if (gridPx < 0) return null
-
-      const beat = pixelToBeat(gridPx, pixelsPerBeat, scrollX)
-      const barHalfWidth = 3 / pixelsPerBeat // ~3px tolerance in beat space
-
-      for (const note of Object.values(notes)) {
-        const center = note.startBeat + note.lengthBeats / 2
-        if (Math.abs(beat - center) <= Math.max(barHalfWidth, note.lengthBeats / 2)) {
-          return note.id
-        }
-      }
-      return null
-    },
-    [],
-  )
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -321,26 +273,9 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
       const py = e.clientY - rect.top
 
       const prState = usePianoRollStore.getState()
-      const { velocityLaneVisible, velocityLaneHeight } = prState
-      const viewportHeight = rect.height
-      const noteAreaHeight = velocityLaneVisible ? viewportHeight - velocityLaneHeight : viewportHeight
 
-      // Check if click is in velocity lane area
-      if (velocityLaneVisible && py >= noteAreaHeight) {
-        const barNoteId = findVelocityBarAt(px)
-        if (barNoteId) {
-          // Ensure note is selected
-          if (!prState.selectedNoteIds.has(barNoteId)) {
-            selectNote(barNoteId)
-          }
-          setDrag({ mode: 'velocity', startX: px, startY: py, currentX: px, currentY: py, noteId: barNoteId })
-          ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-          return
-        }
-      }
-
-      // Check for note hit in the grid area
-      if (py < noteAreaHeight) {
+      // Note hit in the grid area
+      {
         const hit = findNoteAt(px, py)
 
         if (hit) {
@@ -377,10 +312,9 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
           setDrag({ mode: 'create', startX: px, startY: py, currentX: px, currentY: py })
         }
       }
-
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     },
-    [findNoteAt, findVelocityBarAt, selectNote, toggleNoteSelection, clearNoteSelection],
+    [findNoteAt, selectNote, toggleNoteSelection, clearNoteSelection],
   )
 
   const handlePointerMove = useCallback(
@@ -391,25 +325,18 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
 
       const prState = usePianoRollStore.getState()
       const tlState = useTimelineStore.getState()
-      const { scrollX, scrollY, noteRowHeight, velocityLaneVisible, velocityLaneHeight } = prState
+      const { scrollX, scrollY, noteRowHeight } = prState
       const { pixelsPerBeat, snapEnabled, gridResolution } = tlState
-      const viewportHeight = rect.height
-      const noteAreaHeight = velocityLaneVisible ? viewportHeight - velocityLaneHeight : viewportHeight
 
       if (drag.mode === 'none') {
         // Update cursor based on what's under the pointer
-        if (velocityLaneVisible && py >= noteAreaHeight) {
-          const barId = findVelocityBarAt(px)
-          ;(e.currentTarget as HTMLElement).style.cursor = barId ? 'ns-resize' : 'default'
+        const hit = findNoteAt(px, py)
+        if (hit?.edge === 'left' || hit?.edge === 'right') {
+          ;(e.currentTarget as HTMLElement).style.cursor = 'col-resize'
+        } else if (hit) {
+          ;(e.currentTarget as HTMLElement).style.cursor = 'pointer'
         } else {
-          const hit = findNoteAt(px, py)
-          if (hit?.edge === 'left' || hit?.edge === 'right') {
-            ;(e.currentTarget as HTMLElement).style.cursor = 'col-resize'
-          } else if (hit) {
-            ;(e.currentTarget as HTMLElement).style.cursor = 'pointer'
-          } else {
-            ;(e.currentTarget as HTMLElement).style.cursor = 'crosshair'
-          }
+          ;(e.currentTarget as HTMLElement).style.cursor = 'crosshair'
         }
         return
       }
@@ -520,24 +447,8 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
         }
       }
 
-      if (drag.mode === 'velocity' && drag.noteId) {
-        // Calculate new velocity from pointer Y relative to velocity lane
-        const velocityLaneTop = noteAreaHeight
-        const velocityLaneH = velocityLaneHeight
-        const relY = py - velocityLaneTop
-        const newVelocity = Math.max(1, Math.min(127, Math.round((1 - relY / velocityLaneH) * 127)))
-
-        const selectedIds = prState.selectedNoteIds
-        if (selectedIds.size > 1 && selectedIds.has(drag.noteId)) {
-          scaleSelectedVelocities(drag.noteId, newVelocity)
-        } else {
-          usePianoRollStore.getState().updateNote(drag.noteId, { velocity: newVelocity })
-        }
-
-        setVelocityTooltip({ x: px + 12, y: py - 20, value: newVelocity })
-      }
     },
-    [drag, findNoteAt, findVelocityBarAt, selectNotesInRect],
+    [drag, findNoteAt, selectNotesInRect],
   )
 
   const handlePointerUp = useCallback(
@@ -575,7 +486,6 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
       // Reset all transient state
       setDrag({ mode: 'none', startX: 0, startY: 0, currentX: 0, currentY: 0 })
       setGhost(null)
-      setVelocityTooltip(null)
       setSelectionBox(null)
       ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
     },
@@ -665,20 +575,6 @@ export function PianoRollCanvas({ containerRef, trackColorHex }: PianoRollCanvas
             zIndex: 11,
           }}
         />
-      )}
-
-      {/* Velocity tooltip */}
-      {velocityTooltip && (
-        <span
-          className="absolute pointer-events-none bg-[#252542] border border-[#3a3a5a] rounded px-2 py-0.5 text-[10px] text-[#eeeeee]"
-          style={{
-            left: velocityTooltip.x,
-            top: velocityTooltip.y,
-            zIndex: 12,
-          }}
-        >
-          Vel: {velocityTooltip.value}
-        </span>
       )}
 
       {/* Playhead overlay */}

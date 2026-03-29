@@ -5,10 +5,13 @@ import { useShallow } from 'zustand/shallow'
 import { TRACK_COLORS } from '../../utils/colors'
 import { PianoRollToolbar } from './PianoRollToolbar'
 import { PianoRollCanvas } from './PianoRollCanvas'
+import { VelocityLaneDom } from './VelocityLaneDom'
 import { usePianoRollShortcuts } from '../../hooks/use-piano-roll-shortcuts'
 
 export function PianoRollPanel() {
   const activeClipId = usePianoRollStore((s) => s.activeClipId)
+  const velocityLaneVisible = usePianoRollStore((s) => s.velocityLaneVisible)
+  const velocityLaneHeight = usePianoRollStore((s) => s.velocityLaneHeight)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
 
   // Activate piano roll keyboard shortcuts when panel is mounted
@@ -44,6 +47,13 @@ export function PianoRollPanel() {
       <div ref={canvasContainerRef} className="flex-1 min-h-0 relative">
         <PianoRollCanvas containerRef={canvasContainerRef} trackColorHex={trackColorHex} />
       </div>
+      {/* Velocity lane rendered as DOM element with fixed height — unaffected by panel resize */}
+      {velocityLaneVisible && (
+        <VelocityLaneDom
+          height={velocityLaneHeight}
+          trackColorHex={trackColorHex}
+        />
+      )}
     </div>
   )
 }
