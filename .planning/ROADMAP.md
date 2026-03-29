@@ -163,7 +163,7 @@ Plans:
 - [x] 09-01-PLAN.md -- Project save/load with versioned JSON serialization, autosave timer, dirty tracking
 - [x] 09-02-PLAN.md -- Audio export engine (offline bounce, WAV/FLAC/MP3 encoding, stem export)
 - [x] 09-03-PLAN.md -- Export UI (ExportDialog, progress bar, toast notifications, IPC wiring)
-- [ ] 09-04-PLAN.md -- Gap closure: fix C++ bridge registration + offlineBounce silence bug
+- [x] 09-04-PLAN.md -- Gap closure: fix C++ bridge registration + offlineBounce silence bug
 - [ ] 09-05-PLAN.md -- Gap closure: add missing TypeScript export API type declarations
 
 ### Phase 10: Application Integration
