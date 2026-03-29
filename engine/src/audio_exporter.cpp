@@ -169,15 +169,7 @@ juce::AudioBuffer<float> AudioExporter::offlineBounce(
 
         // Process the graph
         blockBuffer.setSize(2, samplesThisBlock, false, false, true);
-        graph.getMasterBus().processBlock(blockBuffer, midiBuffer);
-
-        // Actually use the full graph — we need to process through all nodes
-        // The AudioProcessorGraph handles routing internally
-        // We call processBlock on the graph itself
-        blockBuffer.setSize(2, samplesThisBlock, false, false, true);
         blockBuffer.clear();
-
-        // Feed MIDI into graph and process
         graph.getMasterBus().processBlock(blockBuffer, midiBuffer);
 
         // Copy processed samples to output
