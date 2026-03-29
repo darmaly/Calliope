@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 
+export interface ToastMessage {
+  message: string
+  type: 'success' | 'error'
+  retryFn?: () => void
+}
+
 export interface ProjectState {
   /** Path to the current project file on disk, null if unsaved */
   filePath: string | null
@@ -15,6 +21,12 @@ export interface ProjectState {
   autosaveIntervalMs: number
   /** ISO timestamp of last autosave */
   lastAutosaved: string | null
+  /** Whether the export dialog is open */
+  exportDialogOpen: boolean
+  /** Export progress: null = not exporting, 0-1 = in progress */
+  exportProgress: number | null
+  /** Toast notification message */
+  toastMessage: ToastMessage | null
 }
 
 export interface ProjectActions {
@@ -38,6 +50,16 @@ export interface ProjectActions {
   load: () => Promise<boolean>
   /** Create a new project */
   newProject: () => Promise<void>
+  /** Show the export dialog */
+  showExportDialog: () => void
+  /** Hide the export dialog */
+  hideExportDialog: () => void
+  /** Set export progress (null = not exporting, 0-1 = in progress) */
+  setExportProgress: (pct: number | null) => void
+  /** Show a toast notification */
+  showToast: (msg: ToastMessage) => void
+  /** Hide the current toast */
+  hideToast: () => void
 }
 
 const deriveProjectName = (filePath: string | null): string => {
@@ -55,6 +77,9 @@ const initialState: ProjectState = {
   autosaveEnabled: true,
   autosaveIntervalMs: 120000,
   lastAutosaved: null,
+  exportDialogOpen: false,
+  exportProgress: null,
+  toastMessage: null,
 }
 
 export const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
@@ -138,6 +163,12 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     await window.calliope.projectNew()
     set({ ...initialState })
   },
+
+  showExportDialog: () => set({ exportDialogOpen: true }),
+  hideExportDialog: () => set({ exportDialogOpen: false }),
+  setExportProgress: (pct: number | null) => set({ exportProgress: pct }),
+  showToast: (msg: ToastMessage) => set({ toastMessage: msg }),
+  hideToast: () => set({ toastMessage: null }),
 }))
 
 // Subscribe to command events to auto-mark dirty

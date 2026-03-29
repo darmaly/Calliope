@@ -100,4 +100,29 @@ contextBridge.exposeInMainWorld('calliope', {
     callback: (data: { filePath: string; timestamp: string }) => void
   ) => ipcRenderer.on('project:autosaved', (_event, data) => callback(data)),
   removeProjectAutosavedListener: () => ipcRenderer.removeAllListeners('project:autosaved'),
+
+  // Phase 9 — Export
+  exportAudio: (params: {
+    outputPath: string
+    format: string
+    mp3Bitrate: number
+    totalBeats: number
+    midiEventsJson: string
+  }) => ipcRenderer.invoke('project:export', params),
+  exportStems: (params: {
+    outputDir: string
+    totalBeats: number
+    midiEventsJson: string
+  }) => ipcRenderer.invoke('project:exportStems', params),
+  loadProjectState: (json: string) => ipcRenderer.invoke('project:loadState', json),
+  onExportProgress: (callback: (percent: number) => void) =>
+    ipcRenderer.on('project:exportProgress', (_event, percent) => callback(percent)),
+  removeExportProgressListener: () =>
+    ipcRenderer.removeAllListeners('project:exportProgress'),
+  showExportPathDialog: (format: string) =>
+    ipcRenderer.invoke('project:browseExportPath', format),
+  onShowExportDialog: (callback: () => void) =>
+    ipcRenderer.on('menu:export', () => callback()),
+  removeShowExportDialogListener: () =>
+    ipcRenderer.removeAllListeners('menu:export'),
 })
