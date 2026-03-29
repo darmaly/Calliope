@@ -7,6 +7,7 @@
 #include "calliope/commands/instrument_commands.h"
 #include "calliope/commands/effect_commands.h"
 #include "calliope/project_state.h"
+#include "calliope/project_serializer.h"
 #include "calliope/parameter_registry.h"
 #include <thread>
 #include <memory>
@@ -894,4 +895,142 @@ Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
     }
 
     return env.Undefined();
+}
+
+// Phase 9 — Project save/load
+
+Napi::Value SaveProject(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected file path string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string filePath = info[0].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "SaveProject",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn, filePath]() {
+        auto state = calliope::Engine::getInstance().getProjectState();
+        bool success = calliope::ProjectSerializer::saveToFile(
+            juce::String(filePath), state);
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value LoadProject(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected file path string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string filePath = info[0].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "LoadProject",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn, filePath]() {
+        calliope::ProjectState state;
+        bool success = calliope::ProjectSerializer::loadFromFile(
+            juce::String(filePath), state);
+
+        if (success) {
+            // Apply loaded state to engine
+            auto& engine = calliope::Engine::getInstance();
+
+            // Restore transport settings
+            engine.setBpm(state.transport.bpm);
+            engine.setTimeSignature(state.transport.timeSigNumerator,
+                                    state.transport.timeSigDenominator);
+            engine.setLoopRegion(state.transport.loopStartBeat,
+                                 state.transport.loopEndBeat,
+                                 state.transport.looping);
+
+            // Restore metronome
+            engine.setMetronomeEnabled(state.metronome.enabled);
+            engine.setMetronomeVolume(state.metronome.volume);
+
+            // Restore master bus volume
+            engine.getAudioGraph().getMasterBus().masterVolume.store(state.masterBus.volume);
+
+            // Restore instrument parameters via parameter registry setter functions
+            auto& registry = engine.getParameterRegistry();
+
+            // Helper lambda to set a parameter via registry setter
+            auto setParam = [&registry](const juce::String& id, double value) {
+                const auto* def = registry.getParameter(id);
+                if (def) def->setter(juce::var(value));
+            };
+
+            // PolySynth params
+            setParam("polysynth.osc1Waveform", static_cast<double>(state.polySynth.osc1Waveform));
+            setParam("polysynth.osc2Waveform", static_cast<double>(state.polySynth.osc2Waveform));
+            setParam("polysynth.oscMix", static_cast<double>(state.polySynth.oscMix));
+            setParam("polysynth.osc2Detune", static_cast<double>(state.polySynth.osc2Detune));
+            setParam("polysynth.filterCutoff", static_cast<double>(state.polySynth.filterCutoff));
+            setParam("polysynth.filterResonance", static_cast<double>(state.polySynth.filterResonance));
+            setParam("polysynth.filterEnvAmount", static_cast<double>(state.polySynth.filterEnvAmount));
+            setParam("polysynth.ampAttack", static_cast<double>(state.polySynth.ampAttack));
+            setParam("polysynth.ampDecay", static_cast<double>(state.polySynth.ampDecay));
+            setParam("polysynth.ampSustain", static_cast<double>(state.polySynth.ampSustain));
+            setParam("polysynth.ampRelease", static_cast<double>(state.polySynth.ampRelease));
+            setParam("polysynth.filterAttack", static_cast<double>(state.polySynth.filterAttack));
+            setParam("polysynth.filterDecay", static_cast<double>(state.polySynth.filterDecay));
+            setParam("polysynth.filterSustain", static_cast<double>(state.polySynth.filterSustain));
+            setParam("polysynth.filterRelease", static_cast<double>(state.polySynth.filterRelease));
+            setParam("polysynth.lfoRate", static_cast<double>(state.polySynth.lfoRate));
+            setParam("polysynth.lfoDepth", static_cast<double>(state.polySynth.lfoDepth));
+            setParam("polysynth.lfoTarget", static_cast<double>(state.polySynth.lfoTarget));
+            setParam("polysynth.masterGain", static_cast<double>(state.polySynth.masterGain));
+
+            // BassSynth params
+            setParam("basssynth.oscWaveform", static_cast<double>(state.bassSynth.oscWaveform));
+            setParam("basssynth.subOscMix", static_cast<double>(state.bassSynth.subOscMix));
+            setParam("basssynth.subOscOctave", static_cast<double>(state.bassSynth.subOscOctave));
+            setParam("basssynth.filterCutoff", static_cast<double>(state.bassSynth.filterCutoff));
+            setParam("basssynth.filterResonance", static_cast<double>(state.bassSynth.filterResonance));
+            setParam("basssynth.filterEnvAmount", static_cast<double>(state.bassSynth.filterEnvAmount));
+            setParam("basssynth.ampAttack", static_cast<double>(state.bassSynth.ampAttack));
+            setParam("basssynth.ampDecay", static_cast<double>(state.bassSynth.ampDecay));
+            setParam("basssynth.ampSustain", static_cast<double>(state.bassSynth.ampSustain));
+            setParam("basssynth.ampRelease", static_cast<double>(state.bassSynth.ampRelease));
+            setParam("basssynth.filterAttack", static_cast<double>(state.bassSynth.filterAttack));
+            setParam("basssynth.filterDecay", static_cast<double>(state.bassSynth.filterDecay));
+            setParam("basssynth.filterSustain", static_cast<double>(state.bassSynth.filterSustain));
+            setParam("basssynth.filterRelease", static_cast<double>(state.bassSynth.filterRelease));
+            setParam("basssynth.masterGain", static_cast<double>(state.bassSynth.masterGain));
+
+            // DrumMachine volume
+            setParam("drumMachine.volume", static_cast<double>(state.drumMachine.volume));
+        }
+
+        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, success));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
 }

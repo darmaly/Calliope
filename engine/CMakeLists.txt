@@ -8,6 +8,7 @@ add_library(calliope_engine STATIC
     src/command_dispatcher.cpp
     src/parameter_registry.cpp
     src/project_state.cpp
+    src/project_serializer.cpp
     src/commands/transport_commands.cpp
     src/commands/parameter_commands.cpp
     src/commands/instrument_commands.cpp

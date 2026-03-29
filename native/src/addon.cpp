@@ -62,6 +62,12 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("unsubscribeFromEvents",
         Napi::Function::New(env, UnsubscribeFromEvents));
 
+    // Phase 9 — Project save/load
+    exports.Set("saveProject",
+        Napi::Function::New(env, SaveProject));
+    exports.Set("loadProject",
+        Napi::Function::New(env, LoadProject));
+
     return exports;
 }
 
