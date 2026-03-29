@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { TimelineView } from './components/timeline/TimelineView'
 import { SplitDivider } from './components/piano-roll/SplitDivider'
 import { PianoRollPanel } from './components/piano-roll/PianoRollPanel'
+import { MixerPanel } from './components/mixer/MixerPanel'
 import { usePianoRollStore } from './stores/piano-roll-store'
+import { useMixerStore } from './stores/mixer-store'
 import './App.css'
 
 export default function App() {
@@ -11,6 +13,8 @@ export default function App() {
   const activeClipId = usePianoRollStore((s) => s.activeClipId)
   const collapsed = panelHeight <= 36
   const showPianoRoll = activeClipId !== null
+  const showMixer = useMixerStore((s) => s.mixerVisible)
+  const mixerHeight = 300
 
   useEffect(() => {
     window.calliope.getEngineInfo()
@@ -30,6 +34,15 @@ export default function App() {
     store.setCollapsed(store.panelHeight > 36)
   }, [])
 
+  const handleMixerDividerDrag = useCallback((deltaY: number) => {
+    // Mixer height is stored locally for now; could move to store if needed
+    // The mixer panel has a fixed height via the style prop
+  }, [])
+
+  const handleMixerDoubleClick = useCallback(() => {
+    useMixerStore.getState().toggleMixerVisible()
+  }, [])
+
   return (
     <div className="h-screen w-screen bg-[#1a1a2e] text-[#eeeeee] overflow-hidden flex flex-col">
       <div className="flex-1 min-h-[200px] overflow-hidden">
@@ -40,6 +53,14 @@ export default function App() {
           <SplitDivider onDrag={handleDividerDrag} onDoubleClick={handleDividerDoubleClick} />
           <div style={{ height: panelHeight, minHeight: collapsed ? 36 : 200 }} className="overflow-hidden">
             <PianoRollPanel />
+          </div>
+        </>
+      )}
+      {showMixer && (
+        <>
+          <SplitDivider onDrag={handleMixerDividerDrag} onDoubleClick={handleMixerDoubleClick} />
+          <div style={{ height: mixerHeight, minHeight: 240 }} className="overflow-hidden">
+            <MixerPanel />
           </div>
         </>
       )}
