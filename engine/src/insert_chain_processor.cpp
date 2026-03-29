@@ -1,4 +1,5 @@
 #include "calliope/insert_chain_processor.h"
+#include <cmath>
 
 namespace calliope {
 
@@ -24,6 +25,28 @@ void InsertChainProcessor::releaseResources()
 void InsertChainProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     chain_.processBlock(buffer, midi);
+
+    // Meter computation -- after insert chain processing
+    const int numSamples = buffer.getNumSamples();
+    for (int ch = 0; ch < std::min(buffer.getNumChannels(), 2); ++ch) {
+        const float* data = buffer.getReadPointer(ch);
+        float sum = 0.0f;
+        float peak = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            float s = data[i];
+            sum += s * s;
+            float absVal = std::fabs(s);
+            if (absVal > peak) peak = absVal;
+        }
+        float rms = std::sqrt(sum / static_cast<float>(numSamples));
+        if (ch == 0) {
+            meterData_.rmsLeft.store(rms, std::memory_order_relaxed);
+            meterData_.peakLeft.store(peak, std::memory_order_relaxed);
+        } else {
+            meterData_.rmsRight.store(rms, std::memory_order_relaxed);
+            meterData_.peakRight.store(peak, std::memory_order_relaxed);
+        }
+    }
 }
 
 double InsertChainProcessor::getTailLengthSeconds() const

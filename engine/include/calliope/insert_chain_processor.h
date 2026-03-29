@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <atomic>
 #include "calliope/insert_chain.h"
 
 namespace calliope {
@@ -38,9 +39,19 @@ public:
     // Track identifier
     const juce::String& getTrackId() const;
 
+    // Metering (Phase 8)
+    struct MeterData {
+        std::atomic<float> rmsLeft{0.0f};
+        std::atomic<float> rmsRight{0.0f};
+        std::atomic<float> peakLeft{0.0f};
+        std::atomic<float> peakRight{0.0f};
+    };
+    const MeterData& getMeterData() const { return meterData_; }
+
 private:
     juce::String trackId_;
     InsertChain chain_;
+    MeterData meterData_;
 };
 
 } // namespace calliope

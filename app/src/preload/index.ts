@@ -81,6 +81,19 @@ contextBridge.exposeInMainWorld('calliope', {
       params: { trackId, position, bypassed }
     }),
 
+  // Phase 8 — Mixer
+  getMeterLevels: () => ipcRenderer.invoke('engine:meter:getLevels'),
+  setTrackVolume: (trackId: string, volume: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'parameter.set',
+      params: { id: `track.${trackId}.volume`, value: volume }
+    }),
+  setTrackPan: (trackId: string, pan: number) =>
+    ipcRenderer.invoke('command:dispatch', {
+      command: 'parameter.set',
+      params: { id: `track.${trackId}.pan`, value: pan }
+    }),
+
   onCommandEvent: (
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
