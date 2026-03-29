@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { native } from './native-bridge'
 
@@ -99,11 +99,6 @@ ipcMain.handle('engine:config:getAudioConfig', async () => {
   return await native.getAudioConfig()
 })
 
-// Phase 8 — Metering
-ipcMain.handle('engine:meter:getLevels', async () => {
-  return await native.getMeterLevels()
-})
-
 // Phase 3 — Command dispatch (Phase 4 instrument + Phase 5 effect commands flow through command:dispatch)
 // Supported commands: instrument.noteOn, instrument.noteOff, drumMachine.loadSample,
 //   effect.insert, effect.remove, effect.reorder, effect.bypass
@@ -130,59 +125,128 @@ ipcMain.handle('command:getParameterIds', async () => {
   return await native.getParameterIds()
 })
 
-// Phase 9 — Export
-ipcMain.handle(
-  'project:export',
-  async (_event, params: {
-    outputPath: string
-    format: string
-    mp3Bitrate: number
-    totalBeats: number
-    midiEventsJson: string
-  }) => {
-    return await native.exportAudio(
-      params.outputPath,
-      params.format,
-      params.mp3Bitrate,
-      params.totalBeats,
-      params.midiEventsJson,
-      (percent: number) => {
-        const windows = BrowserWindow.getAllWindows()
-        for (const win of windows) {
-          win.webContents.send('project:exportProgress', percent)
+// Phase 9 — Project save/load
+const PROJECT_FILTERS = [
+  { name: 'LuneyTunes Project', extensions: ['ltproj'] },
+  { name: 'All Files', extensions: ['*'] }
+]
+
+let currentProjectPath: string | null = null
+let autosaveTimer: ReturnType<typeof setInterval> | null = null
+let autosaveEnabled = true
+let autosaveIntervalMs = 120000
+let projectDirty = false
+
+ipcMain.handle('project:save', async (_event, filePath?: string) => {
+  const savePath = filePath ?? currentProjectPath
+  if (!savePath) {
+    // No path yet — trigger Save As
+    const win = BrowserWindow.getFocusedWindow()
+    if (!win) return { success: false, filePath: null }
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Save Project',
+      filters: PROJECT_FILTERS,
+      defaultPath: 'Untitled.ltproj'
+    })
+    if (result.canceled || !result.filePath) return { success: false, filePath: null }
+    currentProjectPath = result.filePath
+    const success = await native.saveProject(currentProjectPath)
+    if (success) projectDirty = false
+    return { success, filePath: currentProjectPath }
+  }
+  const success = await native.saveProject(savePath)
+  if (success) {
+    currentProjectPath = savePath
+    projectDirty = false
+  }
+  return { success, filePath: savePath }
+})
+
+ipcMain.handle('project:saveAs', async () => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (!win) return { success: false, filePath: null }
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Save Project As',
+    filters: PROJECT_FILTERS,
+    defaultPath: currentProjectPath ?? 'Untitled.ltproj'
+  })
+  if (result.canceled || !result.filePath) return { success: false, filePath: null }
+  currentProjectPath = result.filePath
+  const success = await native.saveProject(currentProjectPath)
+  if (success) projectDirty = false
+  return { success, filePath: currentProjectPath }
+})
+
+ipcMain.handle('project:load', async () => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (!win) return { success: false, filePath: null }
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Open Project',
+    filters: PROJECT_FILTERS,
+    properties: ['openFile']
+  })
+  if (result.canceled || result.filePaths.length === 0) return { success: false, filePath: null }
+  const loadPath = result.filePaths[0]
+  const success = await native.loadProject(loadPath)
+  if (success) {
+    currentProjectPath = loadPath
+    projectDirty = false
+  }
+  return { success, filePath: loadPath }
+})
+
+ipcMain.handle('project:new', async () => {
+  currentProjectPath = null
+  projectDirty = false
+  return { success: true }
+})
+
+ipcMain.handle('project:getInfo', async () => {
+  return {
+    filePath: currentProjectPath,
+    isDirty: projectDirty
+  }
+})
+
+ipcMain.handle('project:setAutosave', async (_event, enabled: boolean, intervalMs?: number) => {
+  autosaveEnabled = enabled
+  if (intervalMs !== undefined) autosaveIntervalMs = intervalMs
+  restartAutosaveTimer()
+  return { autosaveEnabled, autosaveIntervalMs }
+})
+
+ipcMain.handle('project:getAutosaveConfig', async () => {
+  return { autosaveEnabled, autosaveIntervalMs }
+})
+
+ipcMain.handle('project:markDirty', async () => {
+  projectDirty = true
+})
+
+function restartAutosaveTimer(): void {
+  if (autosaveTimer) {
+    clearInterval(autosaveTimer)
+    autosaveTimer = null
+  }
+  if (autosaveEnabled) {
+    autosaveTimer = setInterval(async () => {
+      if (projectDirty && currentProjectPath) {
+        const success = await native.saveProject(currentProjectPath)
+        if (success) {
+          projectDirty = false
+          // Notify renderer of autosave
+          const windows = BrowserWindow.getAllWindows()
+          for (const win of windows) {
+            win.webContents.send('project:autosaved', {
+              filePath: currentProjectPath,
+              timestamp: new Date().toISOString()
+            })
+          }
         }
       }
-    )
+    }, autosaveIntervalMs)
   }
-)
-
-ipcMain.handle(
-  'project:exportStems',
-  async (_event, params: {
-    outputDir: string
-    totalBeats: number
-    midiEventsJson: string
-  }) => {
-    return await native.exportStems(
-      params.outputDir,
-      params.totalBeats,
-      params.midiEventsJson,
-      (percent: number) => {
-        const windows = BrowserWindow.getAllWindows()
-        for (const win of windows) {
-          win.webContents.send('project:exportProgress', percent)
-        }
-      }
-    )
-  }
-)
-
-ipcMain.handle(
-  'project:loadState',
-  async (_event, jsonString: string) => {
-    return await native.loadProjectState(jsonString)
-  }
-)
+}
 
 // Subscribe to engine events and forward to renderer windows
 let eventSubscribed = false
@@ -200,6 +264,7 @@ function subscribeToEngineEvents(): void {
 app.whenReady().then(() => {
   createWindow()
   subscribeToEngineEvents()
+  restartAutosaveTimer()
 })
 
 app.on('window-all-closed', () => {
