@@ -61,10 +61,10 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 - [ ] **PROJ-01**: Project save to file and load from file with full state restoration
 - [ ] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
 - [x] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
-- [ ] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
-- [ ] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
-- [ ] **PROJ-06**: Export final mix to FLAC (lossless)
-- [ ] **PROJ-07**: Export individual track stems as separate WAV files
+- [x] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
+- [x] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
+- [x] **PROJ-06**: Export final mix to FLAC (lossless)
+- [x] **PROJ-07**: Export individual track stems as separate WAV files
 
 ### Architecture (AI-Ready Foundation)
 
@@ -183,10 +183,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MIX-04 | Phase 8 | Pending |
 | PROJ-01 | Phase 9 | Pending |
 | PROJ-02 | Phase 9 | Pending |
-| PROJ-04 | Phase 9 | Pending |
-| PROJ-05 | Phase 9 | Pending |
-| PROJ-06 | Phase 9 | Pending |
-| PROJ-07 | Phase 9 | Pending |
+| PROJ-04 | Phase 9 | Complete |
+| PROJ-05 | Phase 9 | Complete |
+| PROJ-06 | Phase 9 | Complete |
+| PROJ-07 | Phase 9 | Complete |
 | UI-02 | Phase 10 | Pending |
 | UI-03 | Phase 10 | Pending |
 | UI-04 | Phase 10 | Pending |
