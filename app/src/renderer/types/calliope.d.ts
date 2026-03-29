@@ -63,6 +63,11 @@ interface CalliopeAPI {
   effectReorder(trackId: string, fromPosition: number, toPosition: number): Promise<unknown>
   effectBypass(trackId: string, position: number, bypassed: boolean): Promise<unknown>
 
+  // Phase 8 — Mixer
+  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
+  setTrackVolume(trackId: string, volume: number): Promise<unknown>
+  setTrackPan(trackId: string, pan: number): Promise<unknown>
+
   // Event subscription
   onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
   removeCommandEventListener(): void

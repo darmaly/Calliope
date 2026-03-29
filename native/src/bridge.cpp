@@ -505,6 +505,50 @@ Napi::Value GetAudioConfig(const Napi::CallbackInfo& info) {
 }
 
 // ============================================================================
+// Phase 8 — Metering
+// ============================================================================
+
+Napi::Value GetMeterLevels(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "GetMeterLevels",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn]() {
+        auto& engine = calliope::Engine::getInstance();
+        auto levels = engine.getMeterLevels();
+
+        tsfn.BlockingCall([deferred, levels](Napi::Env env, Napi::Function) {
+            auto result = Napi::Object::New(env);
+            for (const auto& track : levels.tracks) {
+                auto obj = Napi::Object::New(env);
+                obj.Set("rmsLeft", Napi::Number::New(env, track.rmsLeft));
+                obj.Set("rmsRight", Napi::Number::New(env, track.rmsRight));
+                obj.Set("peakLeft", Napi::Number::New(env, track.peakLeft));
+                obj.Set("peakRight", Napi::Number::New(env, track.peakRight));
+                result.Set(track.trackId, obj);
+            }
+            auto master = Napi::Object::New(env);
+            master.Set("rmsLeft", Napi::Number::New(env, levels.master.rmsLeft));
+            master.Set("rmsRight", Napi::Number::New(env, levels.master.rmsRight));
+            master.Set("peakLeft", Napi::Number::New(env, levels.master.peakLeft));
+            master.Set("peakRight", Napi::Number::New(env, levels.master.peakRight));
+            result.Set("master", master);
+            deferred.Resolve(result);
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+// ============================================================================
 // Phase 3 — Command dispatch
 // ============================================================================
 
