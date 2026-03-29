@@ -75,6 +75,12 @@ InsertChain& Engine::getInsertChain(const juce::String& trackId)
     return getAudioGraph().getInsertChain(trackId);
 }
 
+AudioGraph::AllMeterLevels Engine::getMeterLevels() const
+{
+    if (audioGraph_) return audioGraph_->getMeterLevels();
+    return {};
+}
+
 void Engine::registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect)
 {
     if (!effect) return;
