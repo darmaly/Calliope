@@ -1,4 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// Mock window.calliope for engine clip bridge calls (not available in test env)
+;(globalThis as any).window = {
+  calliope: {
+    clipAdd: vi.fn().mockResolvedValue(true),
+    clipRemove: vi.fn().mockResolvedValue(true),
+    clipUpdate: vi.fn().mockResolvedValue(true),
+    clipClear: vi.fn().mockResolvedValue(true),
+  },
+}
 import { useTimelineStore } from '../app/src/renderer/stores/timeline-store'
 import {
   createClip,
