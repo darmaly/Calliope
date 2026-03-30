@@ -1,6 +1,5 @@
-import { ZoomIn, ZoomOut, Piano } from 'lucide-react'
+import { ZoomIn, ZoomOut } from 'lucide-react'
 import { useTimelineStore } from '../../stores/timeline-store'
-import { usePianoRollStore } from '../../stores/piano-roll-store'
 import { useShallow } from 'zustand/shallow'
 import { GridResolutionSelect } from '../shared/GridResolutionSelect'
 
@@ -64,35 +63,6 @@ export function TimelineToolbar() {
           <ZoomIn size={16} />
         </button>
       </div>
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Piano Roll toggle */}
-      <button
-        onClick={() => {
-          const prState = usePianoRollStore.getState()
-          if (prState.activeClipId) {
-            prState.setActiveClip(null)
-          } else {
-            // Find first MIDI clip to open
-            const tlState = useTimelineStore.getState()
-            const midiClip = Object.values(tlState.clips).find((c) => c.type === 'midi')
-            if (midiClip) {
-              prState.setActiveClip(midiClip.id)
-            }
-          }
-        }}
-        className={`flex items-center gap-1 px-2 py-1 rounded text-[13px] transition-colors ${
-          usePianoRollStore.getState().activeClipId
-            ? 'text-[#6c63ff] underline'
-            : 'text-[#999999] hover:text-[#eeeeee] hover:bg-[#3a3a5a]'
-        }`}
-        title="Toggle Piano Roll"
-      >
-        <Piano size={16} />
-        Piano Roll
-      </button>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TimelineView } from './components/timeline/TimelineView'
+import { TransportBar } from './components/transport/TransportBar'
 import { SplitDivider } from './components/shared/SplitDivider'
 import { PianoRollPanel } from './components/piano-roll/PianoRollPanel'
 import { usePianoRollStore } from './stores/piano-roll-store'
@@ -32,6 +33,7 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen bg-[#1a1a2e] text-[#eeeeee] overflow-hidden flex flex-col">
+      <TransportBar />
       <div className="flex-1 min-h-[200px] overflow-hidden">
         <TimelineView />
       </div>
