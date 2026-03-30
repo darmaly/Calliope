@@ -71,6 +71,9 @@ interface NativeAddon {
   ): void
   unsubscribeFromEvents(): void
 
+  // Phase 8 — Metering
+  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
+
   // Phase 9 — Project save/load
   saveProject(filePath: string): Promise<boolean>
   loadProject(filePath: string): Promise<boolean>

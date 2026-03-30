@@ -125,6 +125,11 @@ ipcMain.handle('command:getParameterIds', async () => {
   return await native.getParameterIds()
 })
 
+// Phase 8 — Meter levels
+ipcMain.handle('engine:meter:getLevels', async () => {
+  return await native.getMeterLevels()
+})
+
 // Phase 9 — Project save/load
 const PROJECT_FILTERS = [
   { name: 'LuneyTunes Project', extensions: ['ltproj'] },

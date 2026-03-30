@@ -9,7 +9,7 @@ import { ExportProgress } from './components/export/ExportProgress'
 import { Toast } from './components/shared/Toast'
 import { usePianoRollStore } from './stores/piano-roll-store'
 import { useMixerStore } from './stores/mixer-store'
-import { useProjectStore } from './stores/project-store'
+import { useProjectStore, initProjectDirtyTracking } from './stores/project-store'
 import { useAppStore } from './stores/app-store'
 import './App.css'
 
@@ -39,6 +39,13 @@ export default function App() {
     window.calliope.getEngineInfo()
       .then((info) => setEngineStatus(`JUCE ${info.juceVersion}`))
       .catch(() => setEngineStatus('offline'))
+  }, [])
+
+  // Engine initialisation and project dirty tracking
+  useEffect(() => {
+    window.calliope.initialiseEngine(44100, 512).catch(() => {})
+    const cleanup = initProjectDirtyTracking()
+    return () => { cleanup() }
   }, [])
 
   // Listen for menu:export event from main process
