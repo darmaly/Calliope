@@ -41,6 +41,8 @@ A person with a musical vision but no DAW experience can go from an empty projec
 - [x] Export to WAV, MP3, FLAC, and individual stems — Validated in Phase 9: Project Management & Export
 - [x] Project save/load — Validated in Phase 9: Project Management & Export
 
+- [x] Unified workspace with transport bar, keyboard shortcuts, and panel focus management — Validated in Phase 10: Application Integration
+
 ### Out of Scope
 
 - VST/AU plugin hosting — complex to implement, defer to post-v1; built-in instruments cover v1 needs
