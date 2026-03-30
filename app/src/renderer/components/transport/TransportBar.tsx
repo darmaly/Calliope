@@ -7,6 +7,7 @@ import { LoopToggle } from './LoopToggle'
 import { MetronomeToggle } from './MetronomeToggle'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { usePianoRollStore } from '../../stores/piano-roll-store'
+import { useMixerStore } from '../../stores/mixer-store'
 
 function Separator() {
   return <div className="w-px h-5 bg-[#3a3a5a] mx-4" />
@@ -84,12 +85,16 @@ function PianoRollToggle() {
 }
 
 function MixerToggle() {
-  // Placeholder: mixer-store does not exist yet
-  // Will be wired when Phase 8 (Mixer) is implemented
+  const mixerVisible = useMixerStore((s) => s.panelVisible)
   return (
     <button
-      className="flex items-center gap-1 px-2 py-1 rounded text-[13px] text-[#999999] hover:text-[#eeeeee] hover:bg-[#3a3a5a] transition-colors"
+      className={`flex items-center gap-1 px-2 py-1 rounded text-[13px] transition-colors ${
+        mixerVisible
+          ? 'text-[#6c63ff] bg-[#6c63ff]/10'
+          : 'text-[#999999] hover:text-[#eeeeee] hover:bg-[#3a3a5a]'
+      }`}
       title="Toggle Mixer"
+      onPointerDown={() => useMixerStore.getState().togglePanel()}
     >
       <SlidersHorizontal size={16} />
       Mixer
