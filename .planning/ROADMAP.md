@@ -175,7 +175,10 @@ Plans:
   2. Audio clip waveforms render via PixiJS/WebGL with smooth performance
   3. Transport bar shows BPM, time signature, and play/stop controls with real-time playhead position
   4. Keyboard shortcuts work for transport, undo/redo, save, and common operations
-**Plans:** TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 10-01-PLAN.md -- Transport bar, app-store, time-format utilities, SplitDivider relocation
+- [ ] 10-02-PLAN.md -- Focus-aware keyboard shortcuts, panel focus UI, waveform verification, human verify
 **UI hint**: yes
 
 ## Progress
@@ -196,4 +199,4 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 7. Piano Roll | 3/3 | Complete   | 2026-03-28 |
 | 8. Mixer | 0/TBD | Not started | - |
 | 9. Project Management & Export | 3/5 | In progress (gap closure) | - |
-| 10. Application Integration | 0/TBD | Not started | - |
+| 10. Application Integration | 0/2 | Planned | - |
