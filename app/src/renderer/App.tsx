@@ -32,20 +32,23 @@ export default function App() {
   const projectName = useProjectStore((s) => s.projectName)
   const isDirty = useProjectStore((s) => s.isDirty)
   useEffect(() => {
-    document.title = `${isDirty ? '* ' : ''}${projectName} - LuneyTunes`
+    document.title = `${isDirty ? '* ' : ''}${projectName} - Calliope`
   }, [projectName, isDirty])
 
+  // Engine init and info must be serialized — concurrent JUCE audio system
+  // access from separate threads causes a race condition crash in prepareToPlay
   useEffect(() => {
+    let cleanupFn: (() => void) | undefined
     window.calliope.getEngineInfo()
-      .then((info) => setEngineStatus(`JUCE ${info.juceVersion}`))
+      .then((info) => {
+        setEngineStatus(`JUCE ${info.juceVersion}`)
+        return window.calliope.initialiseEngine(44100, 512)
+      })
+      .then(() => {
+        cleanupFn = initProjectDirtyTracking()
+      })
       .catch(() => setEngineStatus('offline'))
-  }, [])
-
-  // Engine initialisation and project dirty tracking
-  useEffect(() => {
-    window.calliope.initialiseEngine(44100, 512).catch(() => {})
-    const cleanup = initProjectDirtyTracking()
-    return () => { cleanup() }
+    return () => { cleanupFn?.() }
   }, [])
 
   // Listen for menu:export event from main process
