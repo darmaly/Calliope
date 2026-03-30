@@ -8,7 +8,6 @@ add_library(calliope_engine STATIC
     src/command_dispatcher.cpp
     src/parameter_registry.cpp
     src/project_state.cpp
-    src/project_serializer.cpp
     src/commands/transport_commands.cpp
     src/commands/parameter_commands.cpp
     src/commands/instrument_commands.cpp
@@ -25,7 +24,7 @@ add_library(calliope_engine STATIC
     src/effects/limiter.cpp
     src/insert_chain.cpp
     src/insert_chain_processor.cpp
-    src/audio_exporter.cpp
+    src/clip_scheduler.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)
@@ -50,15 +49,3 @@ target_compile_definitions(calliope_engine
         JUCE_WEB_BROWSER=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
 )
-
-# LAME MP3 encoding (optional — MP3 export disabled if not found)
-find_library(LAME_LIB mp3lame)
-find_path(LAME_INCLUDE lame/lame.h)
-if(LAME_LIB AND LAME_INCLUDE)
-    target_link_libraries(calliope_engine PUBLIC ${LAME_LIB})
-    target_include_directories(calliope_engine PUBLIC ${LAME_INCLUDE})
-    target_compile_definitions(calliope_engine PUBLIC CALLIOPE_HAS_LAME=1)
-    message(STATUS "LAME found: ${LAME_LIB}")
-else()
-    message(WARNING "LAME not found - MP3 export disabled. Install with: brew install lame")
-endif()

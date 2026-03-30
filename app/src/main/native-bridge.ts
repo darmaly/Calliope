@@ -71,29 +71,17 @@ interface NativeAddon {
   ): void
   unsubscribeFromEvents(): void
 
-  // Phase 8 — Metering
-  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
-
-  // Phase 9 — Project save/load
-  saveProject(filePath: string): Promise<boolean>
-  loadProject(filePath: string): Promise<boolean>
-
-  // Phase 9 — Export
-  exportAudio(
-    outputPath: string,
-    format: string,
-    mp3Bitrate: number,
-    totalBeats: number,
-    midiEventsJson: string,
-    onProgress?: (percent: number) => void
-  ): Promise<boolean>
-  exportStems(
-    outputDir: string,
-    totalBeats: number,
-    midiEventsJson: string,
-    onProgress?: (percent: number) => void
-  ): Promise<boolean>
-  loadProjectState(jsonString: string): Promise<boolean>
+  // Phase 10.1 — Clip operations
+  addClip(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  removeClip(clipId: string): Promise<boolean>
+  updateClip(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clearClips(): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {

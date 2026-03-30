@@ -81,6 +81,18 @@ contextBridge.exposeInMainWorld('calliope', {
       params: { trackId, position, bypassed }
     }),
 
+  // Phase 10.1 — Clip operations
+  clipAdd: (clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }) => ipcRenderer.invoke('engine:clip:add', clip),
+  clipRemove: (clipId: string) => ipcRenderer.invoke('engine:clip:remove', clipId),
+  clipUpdate: (clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }) => ipcRenderer.invoke('engine:clip:update', clip),
+  clipClear: () => ipcRenderer.invoke('engine:clip:clear'),
+
   onCommandEvent: (
     callback: (event: { type: string; command: string; data: string }) => void
   ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),

@@ -63,46 +63,21 @@ interface CalliopeAPI {
   effectReorder(trackId: string, fromPosition: number, toPosition: number): Promise<unknown>
   effectBypass(trackId: string, position: number, bypassed: boolean): Promise<unknown>
 
-  // Phase 8 — Mixer
-  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
-  setTrackVolume(trackId: string, volume: number): Promise<unknown>
-  setTrackPan(trackId: string, pan: number): Promise<unknown>
+  // Phase 10.1 — Clip operations
+  clipAdd(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clipRemove(clipId: string): Promise<boolean>
+  clipUpdate(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clipClear(): Promise<boolean>
 
   // Event subscription
   onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
   removeCommandEventListener(): void
-
-  // Phase 9 — Project save/load
-  projectSave(filePath?: string): Promise<{ success: boolean; filePath: string | null }>
-  projectSaveAs(): Promise<{ success: boolean; filePath: string | null }>
-  projectLoad(): Promise<{ success: boolean; filePath: string | null }>
-  projectNew(): Promise<{ success: boolean }>
-  projectGetInfo(): Promise<{ filePath: string | null; isDirty: boolean }>
-  projectSetAutosave(enabled: boolean, intervalMs?: number): Promise<{ autosaveEnabled: boolean; autosaveIntervalMs: number }>
-  projectGetAutosaveConfig(): Promise<{ autosaveEnabled: boolean; autosaveIntervalMs: number }>
-  projectMarkDirty(): Promise<void>
-  onProjectAutosaved(callback: (data: { filePath: string; timestamp: string }) => void): void
-  removeProjectAutosavedListener(): void
-
-  // Phase 9 — Export
-  exportAudio(params: {
-    outputPath: string
-    format: string
-    mp3Bitrate: number
-    totalBeats: number
-    midiEventsJson: string
-  }): Promise<boolean>
-  exportStems(params: {
-    outputDir: string
-    totalBeats: number
-    midiEventsJson: string
-  }): Promise<boolean>
-  loadProjectState(json: string): Promise<boolean>
-  onExportProgress(callback: (percent: number) => void): void
-  removeExportProgressListener(): void
-  showExportPathDialog(format: string): Promise<string | null>
-  onShowExportDialog(callback: () => void): void
-  removeShowExportDialogListener(): void
 }
 
 declare global {
