@@ -51,15 +51,15 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 ### Mixer
 
-- [ ] **MIX-01**: Per-track channel strip with volume fader, pan knob, mute, and solo
+- [x] **MIX-01**: Per-track channel strip with volume fader, pan knob, mute, and solo
 - [ ] **MIX-02**: Master channel strip with volume fader and insert effect chain
 - [ ] **MIX-03**: Per-track insert effect chain with add, remove, reorder, and bypass per effect
-- [ ] **MIX-04**: Visual level meters on each channel strip showing real-time signal level
+- [x] **MIX-04**: Visual level meters on each channel strip showing real-time signal level
 
 ### Project Management
 
 - [ ] **PROJ-01**: Project save to file and load from file with full state restoration
-- [ ] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
+- [x] **PROJ-02**: Autosave at configurable interval (default every 2 minutes)
 - [x] **PROJ-03**: Undo/redo with deep history stack (minimum 100 operations)
 - [ ] **PROJ-04**: Export final mix to WAV (uncompressed, 16/24-bit)
 - [ ] **PROJ-05**: Export final mix to MP3 (configurable bitrate)
@@ -177,12 +177,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PR-03 | Phase 7 | Complete |
 | PR-04 | Phase 7 | Complete |
 | PR-05 | Phase 7 | Complete |
-| MIX-01 | Phase 8 | Pending |
+| MIX-01 | Phase 8 | Complete |
 | MIX-02 | Phase 8 | Pending |
 | MIX-03 | Phase 8 | Pending |
-| MIX-04 | Phase 8 | Pending |
+| MIX-04 | Phase 8 | Complete |
 | PROJ-01 | Phase 9 | Pending |
-| PROJ-02 | Phase 9 | Pending |
+| PROJ-02 | Phase 9 | Complete |
 | PROJ-04 | Phase 9 | Pending |
 | PROJ-05 | Phase 9 | Pending |
 | PROJ-06 | Phase 9 | Pending |

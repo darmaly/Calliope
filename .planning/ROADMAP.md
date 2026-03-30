@@ -197,8 +197,8 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 **Goal:** Fix merge regressions (mixer IPC), add missing init calls (engine, dirty tracking), and add C++ engine clip support for MIDI playback
 **Requirements**: MIX-01, MIX-04, ENG-01, PROJ-02, TL-02, TL-03
 **Depends on:** Phase 10
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 10.1-01-PLAN.md -- Restore mixer IPC methods, add engine init and dirty tracking calls
+- [x] 10.1-01-PLAN.md -- Restore mixer IPC methods, add engine init and dirty tracking calls
 - [ ] 10.1-02-PLAN.md -- C++ ClipScheduler with bridge, IPC, preload wiring for engine-managed MIDI clips
