@@ -24,6 +24,7 @@ add_library(calliope_engine STATIC
     src/effects/limiter.cpp
     src/insert_chain.cpp
     src/insert_chain_processor.cpp
+    src/clip_scheduler.cpp
 )
 
 target_include_directories(calliope_engine PUBLIC include)

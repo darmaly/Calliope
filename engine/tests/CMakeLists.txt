@@ -25,6 +25,7 @@ add_executable(calliope_engine_tests
     test_effects.cpp
     test_insert_chain.cpp
     test_effect_commands.cpp
+    test_clip_scheduler.cpp
 )
 
 target_link_libraries(calliope_engine_tests

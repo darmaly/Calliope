@@ -10,6 +10,7 @@
 #include "calliope/instruments/bass_synth.h"
 #include "calliope/instruments/drum_machine.h"
 #include "calliope/insert_chain_processor.h"
+#include "calliope/clip_scheduler.h"
 #include <memory>
 
 namespace calliope {
@@ -47,6 +48,9 @@ public:
     InsertChainProcessor& getInsertChainProcessor(const juce::String& trackId);
     InsertChain& getInsertChain(const juce::String& trackId);
 
+    // Clip scheduler access (Phase 10.1)
+    ClipScheduler& getClipScheduler();
+
 private:
     juce::AudioDeviceManager deviceManager_;
     juce::AudioProcessorPlayer player_;
@@ -78,6 +82,7 @@ private:
     juce::AudioProcessorGraph::Node::Ptr drumMachineChainNode_;
     juce::AudioProcessorGraph::Node::Ptr masterChainNode_;
 
+    ClipScheduler clipScheduler_;
     AudioConfig currentConfig_;
     bool initialised_ = false;
 
