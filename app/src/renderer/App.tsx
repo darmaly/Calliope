@@ -10,6 +10,7 @@ import { Toast } from './components/shared/Toast'
 import { usePianoRollStore } from './stores/piano-roll-store'
 import { useMixerStore } from './stores/mixer-store'
 import { useProjectStore } from './stores/project-store'
+import { useAppStore } from './stores/app-store'
 import './App.css'
 
 export default function App() {
@@ -25,6 +26,14 @@ export default function App() {
   const toastMessage = useProjectStore((s) => s.toastMessage)
   const hideToast = useProjectStore((s) => s.hideToast)
   const showExportDialog = useProjectStore((s) => s.showExportDialog)
+  const focusedPanel = useAppStore((s) => s.focusedPanel)
+
+  // Window title effect
+  const projectName = useProjectStore((s) => s.projectName)
+  const isDirty = useProjectStore((s) => s.isDirty)
+  useEffect(() => {
+    document.title = `${isDirty ? '* ' : ''}${projectName} - LuneyTunes`
+  }, [projectName, isDirty])
 
   useEffect(() => {
     window.calliope.getEngineInfo()
@@ -65,16 +74,26 @@ export default function App() {
     useMixerStore.getState().toggleMixerVisible()
   }, [])
 
+  const focusBorder = (panel: 'timeline' | 'piano-roll' | 'mixer') =>
+    focusedPanel === panel ? 'border-l-2 border-[#6c63ff]' : 'border-l-2 border-transparent'
+
   return (
     <div className="h-screen w-screen bg-[#1a1a2e] text-[#eeeeee] overflow-hidden flex flex-col">
       <TransportBar />
-      <div className="flex-1 min-h-[200px] overflow-hidden">
+      <div
+        className={`flex-1 min-h-[200px] overflow-hidden ${focusBorder('timeline')}`}
+        onPointerDown={() => useAppStore.getState().setFocusedPanel('timeline')}
+      >
         <TimelineView />
       </div>
       {showPianoRoll && (
         <>
           <SplitDivider onDrag={handleDividerDrag} onDoubleClick={handleDividerDoubleClick} />
-          <div style={{ height: panelHeight, minHeight: collapsed ? 36 : 200 }} className="overflow-hidden">
+          <div
+            style={{ height: panelHeight, minHeight: collapsed ? 36 : 200 }}
+            className={`overflow-hidden ${focusBorder('piano-roll')}`}
+            onPointerDown={() => useAppStore.getState().setFocusedPanel('piano-roll')}
+          >
             <PianoRollPanel />
           </div>
         </>
@@ -82,7 +101,11 @@ export default function App() {
       {showMixer && (
         <>
           <SplitDivider onDrag={handleMixerDividerDrag} onDoubleClick={handleMixerDoubleClick} />
-          <div style={{ height: mixerHeight, minHeight: 240 }} className="overflow-hidden">
+          <div
+            style={{ height: mixerHeight, minHeight: 240 }}
+            className={`overflow-hidden ${focusBorder('mixer')}`}
+            onPointerDown={() => useAppStore.getState().setFocusedPanel('mixer')}
+          >
             <MixerPanel />
           </div>
         </>
