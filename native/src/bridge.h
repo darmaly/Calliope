@@ -38,6 +38,9 @@ Napi::Value GetParameterIds(const Napi::CallbackInfo& info);
 Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info);
 Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info);
 
+// Phase 8 — Metering
+Napi::Value GetMeterLevels(const Napi::CallbackInfo& info);
+
 // Phase 9 — Project save/load
 Napi::Value SaveProject(const Napi::CallbackInfo& info);
 Napi::Value LoadProject(const Napi::CallbackInfo& info);

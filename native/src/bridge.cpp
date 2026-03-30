@@ -898,6 +898,49 @@ Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
     return env.Undefined();
 }
 
+// ============================================================================
+// Phase 8 — Metering
+// ============================================================================
+
+Napi::Value GetMeterLevels(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "GetMeterLevels",
+        0, 1
+    );
+
+    std::thread([deferred, tsfn]() {
+        auto levels = calliope::Engine::getInstance().getMeterLevels();
+
+        tsfn.BlockingCall([deferred, levels](Napi::Env env, Napi::Function) {
+            auto result = Napi::Object::New(env);
+            for (const auto& track : levels.tracks) {
+                auto trackObj = Napi::Object::New(env);
+                trackObj.Set("rmsLeft", Napi::Number::New(env, track.rmsLeft));
+                trackObj.Set("rmsRight", Napi::Number::New(env, track.rmsRight));
+                trackObj.Set("peakLeft", Napi::Number::New(env, track.peakLeft));
+                trackObj.Set("peakRight", Napi::Number::New(env, track.peakRight));
+                result.Set(track.trackId, trackObj);
+            }
+            auto masterObj = Napi::Object::New(env);
+            masterObj.Set("rmsLeft", Napi::Number::New(env, levels.master.rmsLeft));
+            masterObj.Set("rmsRight", Napi::Number::New(env, levels.master.rmsRight));
+            masterObj.Set("peakLeft", Napi::Number::New(env, levels.master.peakLeft));
+            masterObj.Set("peakRight", Napi::Number::New(env, levels.master.peakRight));
+            result.Set("master", masterObj);
+            deferred.Resolve(result);
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
 // Phase 9 — Project save/load
 
 Napi::Value SaveProject(const Napi::CallbackInfo& info) {

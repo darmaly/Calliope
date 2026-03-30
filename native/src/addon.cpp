@@ -62,6 +62,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("unsubscribeFromEvents",
         Napi::Function::New(env, UnsubscribeFromEvents));
 
+    // Phase 8 — Metering
+    exports.Set("getMeterLevels",
+        Napi::Function::New(env, GetMeterLevels));
+
     // Phase 9 — Project save/load
     exports.Set("saveProject",
         Napi::Function::New(env, SaveProject));
