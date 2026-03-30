@@ -11,6 +11,9 @@ export function createClip(
 ): void {
   const name = type === 'midi' ? 'MIDI Clip' : 'Audio Clip'
 
+  // Capture clip IDs before add to identify the new one
+  const clipsBefore = Object.keys(useTimelineStore.getState().clips)
+
   useTimelineStore.getState().addClip({
     trackId,
     type,
@@ -19,14 +22,19 @@ export function createClip(
     name,
   })
 
-  // Attempt engine dispatch (engine may not have clip commands yet)
-  try {
-    window.calliope?.dispatchCommand({
-      command: 'clip:create',
-      params: { trackId, startBeat, lengthBeats, type, name },
-    })
-  } catch {
-    // Engine clip commands not yet implemented — store-only for now
+  // Dispatch MIDI clip to C++ engine for audio playback
+  if (type === 'midi') {
+    const clipsAfter = useTimelineStore.getState().clips
+    const newClipId = Object.keys(clipsAfter).find((id) => !clipsBefore.includes(id))
+    if (newClipId) {
+      window.calliope?.clipAdd({
+        clipId: newClipId,
+        trackId,
+        startBeat,
+        lengthBeats,
+        notes: [],
+      }).catch(() => {})
+    }
   }
 }
 
@@ -36,14 +44,8 @@ export function createClip(
 export function deleteClip(clipId: string): void {
   useTimelineStore.getState().removeClip(clipId)
 
-  try {
-    window.calliope?.dispatchCommand({
-      command: 'clip:delete',
-      params: { clipId },
-    })
-  } catch {
-    // Engine clip commands not yet implemented
-  }
+  // Remove clip from C++ engine
+  window.calliope?.clipRemove(clipId).catch(() => {})
 }
 
 /**
@@ -52,13 +54,24 @@ export function deleteClip(clipId: string): void {
 export function moveClip(clipId: string, startBeat: number, trackId?: string): void {
   useTimelineStore.getState().moveClip(clipId, startBeat, trackId)
 
-  try {
-    window.calliope?.dispatchCommand({
-      command: 'clip:move',
-      params: { clipId, startBeat, trackId },
-    })
-  } catch {
-    // Engine clip commands not yet implemented
+  // Sync updated clip to C++ engine
+  const clip = useTimelineStore.getState().clips[clipId]
+  if (clip && clip.type === 'midi') {
+    const notes = clip.notes
+      ? Object.values(clip.notes).map((n) => ({
+          pitch: n.pitch,
+          startBeat: n.startBeat,
+          lengthBeats: n.lengthBeats,
+          velocity: n.velocity,
+        }))
+      : []
+    window.calliope?.clipUpdate({
+      clipId,
+      trackId: clip.trackId,
+      startBeat: clip.startBeat,
+      lengthBeats: clip.lengthBeats,
+      notes,
+    }).catch(() => {})
   }
 }
 
@@ -68,13 +81,24 @@ export function moveClip(clipId: string, startBeat: number, trackId?: string): v
 export function resizeClip(clipId: string, startBeat: number, lengthBeats: number): void {
   useTimelineStore.getState().resizeClip(clipId, startBeat, lengthBeats)
 
-  try {
-    window.calliope?.dispatchCommand({
-      command: 'clip:resize',
-      params: { clipId, startBeat, lengthBeats },
-    })
-  } catch {
-    // Engine clip commands not yet implemented
+  // Sync updated clip to C++ engine
+  const clip = useTimelineStore.getState().clips[clipId]
+  if (clip && clip.type === 'midi') {
+    const notes = clip.notes
+      ? Object.values(clip.notes).map((n) => ({
+          pitch: n.pitch,
+          startBeat: n.startBeat,
+          lengthBeats: n.lengthBeats,
+          velocity: n.velocity,
+        }))
+      : []
+    window.calliope?.clipUpdate({
+      clipId,
+      trackId: clip.trackId,
+      startBeat: clip.startBeat,
+      lengthBeats: clip.lengthBeats,
+      notes,
+    }).catch(() => {})
   }
 }
 
@@ -82,14 +106,33 @@ export function resizeClip(clipId: string, startBeat: number, lengthBeats: numbe
  * Duplicate a clip (placed immediately after the original).
  */
 export function duplicateClip(clipId: string): void {
+  // Capture clip IDs before duplicate to identify the new one
+  const clipsBefore = Object.keys(useTimelineStore.getState().clips)
+  const sourceClip = useTimelineStore.getState().clips[clipId]
+
   useTimelineStore.getState().duplicateClip(clipId)
 
-  try {
-    window.calliope?.dispatchCommand({
-      command: 'clip:duplicate',
-      params: { clipId },
-    })
-  } catch {
-    // Engine clip commands not yet implemented
+  // Sync duplicated MIDI clip to C++ engine
+  if (sourceClip && sourceClip.type === 'midi') {
+    const clipsAfter = useTimelineStore.getState().clips
+    const newClipId = Object.keys(clipsAfter).find((id) => !clipsBefore.includes(id))
+    if (newClipId) {
+      const newClip = clipsAfter[newClipId]
+      const notes = newClip.notes
+        ? Object.values(newClip.notes).map((n) => ({
+            pitch: n.pitch,
+            startBeat: n.startBeat,
+            lengthBeats: n.lengthBeats,
+            velocity: n.velocity,
+          }))
+        : []
+      window.calliope?.clipAdd({
+        clipId: newClipId,
+        trackId: newClip.trackId,
+        startBeat: newClip.startBeat,
+        lengthBeats: newClip.lengthBeats,
+        notes,
+      }).catch(() => {})
+    }
   }
 }

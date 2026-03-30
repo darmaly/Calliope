@@ -125,6 +125,23 @@ ipcMain.handle('command:getParameterIds', async () => {
   return await native.getParameterIds()
 })
 
+// Phase 10.1 — Clip operations
+ipcMain.handle('engine:clip:add', async (_event, clip) => {
+  return await native.addClip(clip)
+})
+
+ipcMain.handle('engine:clip:remove', async (_event, clipId: string) => {
+  return await native.removeClip(clipId)
+})
+
+ipcMain.handle('engine:clip:update', async (_event, clip) => {
+  return await native.updateClip(clip)
+})
+
+ipcMain.handle('engine:clip:clear', async () => {
+  return await native.clearClips()
+})
+
 // Subscribe to engine events and forward to renderer windows
 let eventSubscribed = false
 function subscribeToEngineEvents(): void {

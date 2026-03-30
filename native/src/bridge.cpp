@@ -1,6 +1,7 @@
 #include <napi.h>
 #include "bridge.h"
 #include "calliope/engine.h"
+#include "calliope/clip_scheduler.h"
 #include "calliope/command_dispatcher.h"
 #include "calliope/commands/transport_commands.h"
 #include "calliope/commands/parameter_commands.h"
@@ -894,4 +895,141 @@ Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
     }
 
     return env.Undefined();
+}
+
+// ============================================================================
+// Phase 10.1 — Clip operations
+// ============================================================================
+
+// Helper: parse a JS clip object into MidiClipData on the JS thread
+static calliope::MidiClipData parseClipObject(const Napi::Object& obj) {
+    calliope::MidiClipData clip;
+    clip.clipId = obj.Get("clipId").As<Napi::String>().Utf8Value();
+    clip.trackId = obj.Get("trackId").As<Napi::String>().Utf8Value();
+    clip.startBeat = obj.Get("startBeat").As<Napi::Number>().DoubleValue();
+    clip.lengthBeats = obj.Get("lengthBeats").As<Napi::Number>().DoubleValue();
+
+    if (obj.Has("notes") && obj.Get("notes").IsArray()) {
+        auto notesArr = obj.Get("notes").As<Napi::Array>();
+        for (uint32_t i = 0; i < notesArr.Length(); ++i) {
+            auto noteObj = notesArr.Get(i).As<Napi::Object>();
+            calliope::MidiNoteData note;
+            note.pitch = noteObj.Get("pitch").As<Napi::Number>().Int32Value();
+            note.startBeat = noteObj.Get("startBeat").As<Napi::Number>().DoubleValue();
+            note.lengthBeats = noteObj.Get("lengthBeats").As<Napi::Number>().DoubleValue();
+            note.velocity = noteObj.Get("velocity").As<Napi::Number>().FloatValue();
+            clip.notes.push_back(note);
+        }
+    }
+
+    return clip;
+}
+
+Napi::Value AddClip(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected clip object").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    auto clipData = parseClipObject(info[0].As<Napi::Object>());
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "AddClip", 0, 1
+    );
+
+    std::thread([deferred, tsfn, clipData]() {
+        calliope::Engine::getInstance().getClipScheduler().addClip(clipData);
+
+        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, true));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value RemoveClip(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected clipId as string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string clipId = info[0].As<Napi::String>().Utf8Value();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "RemoveClip", 0, 1
+    );
+
+    std::thread([deferred, tsfn, clipId]() {
+        calliope::Engine::getInstance().getClipScheduler().removeClip(clipId);
+
+        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, true));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value UpdateClip(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected clip object").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    auto clipData = parseClipObject(info[0].As<Napi::Object>());
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "UpdateClip", 0, 1
+    );
+
+    std::thread([deferred, tsfn, clipData]() {
+        calliope::Engine::getInstance().getClipScheduler().updateClip(clipData);
+
+        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, true));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
+}
+
+Napi::Value ClearClips(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    auto deferred = Napi::Promise::Deferred::New(env);
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+        "ClearClips", 0, 1
+    );
+
+    std::thread([deferred, tsfn]() {
+        calliope::Engine::getInstance().getClipScheduler().clearClips();
+
+        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
+            deferred.Resolve(Napi::Boolean::New(env, true));
+        });
+        tsfn.Release();
+    }).detach();
+
+    return deferred.Promise();
 }

@@ -63,6 +63,18 @@ interface CalliopeAPI {
   effectReorder(trackId: string, fromPosition: number, toPosition: number): Promise<unknown>
   effectBypass(trackId: string, position: number, bypassed: boolean): Promise<unknown>
 
+  // Phase 10.1 — Clip operations
+  clipAdd(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clipRemove(clipId: string): Promise<boolean>
+  clipUpdate(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clipClear(): Promise<boolean>
+
   // Event subscription
   onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
   removeCommandEventListener(): void

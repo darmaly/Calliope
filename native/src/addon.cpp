@@ -62,6 +62,16 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("unsubscribeFromEvents",
         Napi::Function::New(env, UnsubscribeFromEvents));
 
+    // Phase 10.1 — Clip operations
+    exports.Set("addClip",
+        Napi::Function::New(env, AddClip));
+    exports.Set("removeClip",
+        Napi::Function::New(env, RemoveClip));
+    exports.Set("updateClip",
+        Napi::Function::New(env, UpdateClip));
+    exports.Set("clearClips",
+        Napi::Function::New(env, ClearClips));
+
     return exports;
 }
 
