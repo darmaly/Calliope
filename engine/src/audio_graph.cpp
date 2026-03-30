@@ -17,6 +17,21 @@ void AudioGraph::GraphCallback::audioDeviceIOCallbackWithContext(
         owner_.transport_.advancePosition(numSamples);
     }
 
+    // Dispatch MIDI events from clips to instruments based on transport position
+    owner_.clipScheduler_.processBlock(
+        numSamples,
+        owner_.currentConfig_.sampleRate,
+        owner_.transport_.getBpm(),
+        owner_.transport_.getPpqPosition(),
+        owner_.transport_.getState() == TransportState::Playing,
+        owner_.transport_.isLooping(),
+        owner_.transport_.getLoopStartBeat(),
+        owner_.transport_.getLoopEndBeat(),
+        owner_.polySynthPtr_,
+        owner_.bassSynthPtr_,
+        owner_.drumMachinePtr_
+    );
+
     // Delegate to the AudioProcessorPlayer which drives the graph
     owner_.player_.audioDeviceIOCallbackWithContext(
         inputChannelData, numInputChannels,
@@ -205,6 +220,8 @@ AudioConfig AudioGraph::getAudioConfig() const { return currentConfig_; }
 PolySynthProcessor& AudioGraph::getPolySynth() { return *polySynthPtr_; }
 BassSynthProcessor& AudioGraph::getBassSynth() { return *bassSynthPtr_; }
 DrumMachineProcessor& AudioGraph::getDrumMachine() { return *drumMachinePtr_; }
+
+ClipScheduler& AudioGraph::getClipScheduler() { return clipScheduler_; }
 
 InsertChainProcessor& AudioGraph::getInsertChainProcessor(const juce::String& trackId)
 {

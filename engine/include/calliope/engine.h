@@ -43,6 +43,9 @@ public:
     // Insert chain access (Phase 5)
     InsertChain& getInsertChain(const juce::String& trackId);
 
+    // Clip scheduler access (Phase 10.1)
+    ClipScheduler& getClipScheduler();
+
     // Dynamic effect parameter registration/unregistration
     void registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect);
     void unregisterEffectParameters(const juce::String& trackId, int slotIndex);

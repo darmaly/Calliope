@@ -75,6 +75,11 @@ InsertChain& Engine::getInsertChain(const juce::String& trackId)
     return getAudioGraph().getInsertChain(trackId);
 }
 
+ClipScheduler& Engine::getClipScheduler()
+{
+    return getAudioGraph().getClipScheduler();
+}
+
 void Engine::registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect)
 {
     if (!effect) return;
