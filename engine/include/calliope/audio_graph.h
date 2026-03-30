@@ -2,8 +2,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_utils/juce_audio_utils.h>
-#include <string>
-#include <vector>
 #include "calliope/transport.h"
 #include "calliope/master_bus.h"
 #include "calliope/metronome.h"
@@ -12,6 +10,7 @@
 #include "calliope/instruments/bass_synth.h"
 #include "calliope/instruments/drum_machine.h"
 #include "calliope/insert_chain_processor.h"
+#include "calliope/clip_scheduler.h"
 #include <memory>
 
 namespace calliope {
@@ -49,16 +48,8 @@ public:
     InsertChainProcessor& getInsertChainProcessor(const juce::String& trackId);
     InsertChain& getInsertChain(const juce::String& trackId);
 
-    // Metering (Phase 8)
-    struct AllMeterLevels {
-        struct TrackMeter {
-            std::string trackId;
-            float rmsLeft, rmsRight, peakLeft, peakRight;
-        };
-        std::vector<TrackMeter> tracks;
-        TrackMeter master;
-    };
-    AllMeterLevels getMeterLevels() const;
+    // Clip scheduler access (Phase 10.1)
+    ClipScheduler& getClipScheduler();
 
 private:
     juce::AudioDeviceManager deviceManager_;
@@ -91,6 +82,7 @@ private:
     juce::AudioProcessorGraph::Node::Ptr drumMachineChainNode_;
     juce::AudioProcessorGraph::Node::Ptr masterChainNode_;
 
+    ClipScheduler clipScheduler_;
     AudioConfig currentConfig_;
     bool initialised_ = false;
 
