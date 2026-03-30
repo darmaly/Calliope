@@ -158,13 +158,7 @@ Plans:
   2. Autosave triggers at a configurable interval (default every 2 minutes)
   3. Final mix exports to WAV (16/24-bit), MP3 (configurable bitrate), and FLAC
   4. Individual track stems export as separate WAV files
-**Plans:** 5 plans (3 executed + 2 gap closure)
-Plans:
-- [x] 09-01-PLAN.md -- Project save/load with versioned JSON serialization, autosave timer, dirty tracking
-- [x] 09-02-PLAN.md -- Audio export engine (offline bounce, WAV/FLAC/MP3 encoding, stem export)
-- [x] 09-03-PLAN.md -- Export UI (ExportDialog, progress bar, toast notifications, IPC wiring)
-- [x] 09-04-PLAN.md -- Gap closure: fix C++ bridge registration + offlineBounce silence bug
-- [ ] 09-05-PLAN.md -- Gap closure: add missing TypeScript export API type declarations
+**Plans:** TBD
 
 ### Phase 10: Application Integration
 **Goal**: All panels unite into a cohesive DAW workspace with professional navigation, rendering, and shortcuts
@@ -175,10 +169,7 @@ Plans:
   2. Audio clip waveforms render via PixiJS/WebGL with smooth performance
   3. Transport bar shows BPM, time signature, and play/stop controls with real-time playhead position
   4. Keyboard shortcuts work for transport, undo/redo, save, and common operations
-**Plans:** 2 plans
-Plans:
-- [ ] 10-01-PLAN.md -- Transport bar, app-store, time-format utilities, SplitDivider relocation
-- [ ] 10-02-PLAN.md -- Focus-aware keyboard shortcuts, panel focus UI, waveform verification, human verify
+**Plans:** TBD
 **UI hint**: yes
 
 ## Progress
@@ -198,5 +189,5 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 6. Timeline & Arrangement | 4/4 | Complete   | 2026-03-28 |
 | 7. Piano Roll | 3/3 | Complete   | 2026-03-28 |
 | 8. Mixer | 0/TBD | Not started | - |
-| 9. Project Management & Export | 3/5 | In progress (gap closure) | - |
-| 10. Application Integration | 0/2 | Planned | - |
+| 9. Project Management & Export | 0/TBD | Not started | - |
+| 10. Application Integration | 1/2 | In Progress | - |
