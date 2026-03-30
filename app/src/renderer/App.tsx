@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TimelineView } from './components/timeline/TimelineView'
-import { SplitDivider } from './components/piano-roll/SplitDivider'
+import { SplitDivider } from './components/shared/SplitDivider'
 import { PianoRollPanel } from './components/piano-roll/PianoRollPanel'
 import { usePianoRollStore } from './stores/piano-roll-store'
 import './App.css'
