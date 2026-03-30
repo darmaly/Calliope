@@ -140,6 +140,10 @@ Recent decisions affecting current work:
 - [Phase 10]: Pure routeShortcut function extracted for testability -- returns action string or null
 - [Phase 10]: Panel focus via pointerdown on container divs, border-l-2 accent indicator
 
+### Roadmap Evolution
+
+- Phase 10.1 inserted after Phase 10: Integration Fixes & Engine Clips (URGENT)
+
 ### Pending Todos
 
 None yet.

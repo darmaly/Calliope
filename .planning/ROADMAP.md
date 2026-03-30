@@ -191,3 +191,13 @@ Phase 10 waits for 6, 7, 8, and 9 to complete.
 | 8. Mixer | 0/TBD | Not started | - |
 | 9. Project Management & Export | 0/TBD | Not started | - |
 | 10. Application Integration | 2/2 | Complete    | 2026-03-30 |
+
+### Phase 10.1: Integration Fixes & Engine Clips (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10.1 to break down)
