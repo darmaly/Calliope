@@ -49,3 +49,9 @@ Napi::Value LoadProject(const Napi::CallbackInfo& info);
 Napi::Value ExportAudio(const Napi::CallbackInfo& info);
 Napi::Value ExportStems(const Napi::CallbackInfo& info);
 Napi::Value LoadProjectState(const Napi::CallbackInfo& info);
+
+// Phase 10.1 — Clip scheduling
+Napi::Value AddClip(const Napi::CallbackInfo& info);
+Napi::Value RemoveClip(const Napi::CallbackInfo& info);
+Napi::Value UpdateClip(const Napi::CallbackInfo& info);
+Napi::Value ClearClips(const Napi::CallbackInfo& info);
