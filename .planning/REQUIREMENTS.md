@@ -79,9 +79,9 @@ Requirements for initial release. AI-ready DAW foundation with professional soun
 
 - [x] **UI-01**: Electron application shell with React-based UI
 - [x] **UI-02**: Main layout with timeline, piano roll, mixer, and instrument/effect panels
-- [ ] **UI-03**: Waveform rendering for audio clips using PixiJS/WebGL
+- [x] **UI-03**: Waveform rendering for audio clips using PixiJS/WebGL
 - [x] **UI-04**: Responsive transport bar with BPM, time signature, play/stop/record controls
-- [ ] **UI-05**: Keyboard shortcuts for transport, undo/redo, save, and common operations
+- [x] **UI-05**: Keyboard shortcuts for transport, undo/redo, save, and common operations
 
 ## v2 Requirements
 
@@ -188,9 +188,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-06 | Phase 9 | Pending |
 | PROJ-07 | Phase 9 | Pending |
 | UI-02 | Phase 10 | Complete |
-| UI-03 | Phase 10 | Pending |
+| UI-03 | Phase 10 | Complete |
 | UI-04 | Phase 10 | Complete |
-| UI-05 | Phase 10 | Pending |
+| UI-05 | Phase 10 | Complete |
 
 **Coverage:**
 - v1 requirements: 49 total
