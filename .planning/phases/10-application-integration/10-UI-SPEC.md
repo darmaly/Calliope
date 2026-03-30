@@ -56,8 +56,10 @@ Exceptions:
 |------|------|--------|-------------|-------|
 | Body | 13px | 400 (regular) | 1.5 | Toolbar labels, panel toggle text, shortcut hints |
 | Label | 10px | 400 (regular) | 1.2 | Transport position readouts, BPM unit, time signature denominator |
-| Heading | 13px | 500 (medium) | 1.2 | Transport bar section labels, panel titles |
+| Heading | 13px | 400 (regular) | 1.2 | Transport bar section labels, panel titles |
 | Display | 16px | 600 (semibold) | 1.0 | BPM value, time position (MM:SS.ms), bars:beats readout |
+
+Two weights only: 400 (regular) for Body, Label, and Heading; 600 (semibold) for Display numeric readouts. Heading differentiates from Body via smaller line-height (1.2 vs 1.5), not weight.
 
 Source: Body/Label/Heading consistent with Phase 6-8 typography. Display role added for transport bar numeric readouts that need to be scannable at a glance while playing.
 
