@@ -29,10 +29,15 @@ Engine::~Engine()
 
 bool Engine::initialise(double sampleRate, int bufferSize)
 {
+    // Guard against concurrent initialisation from multiple bridge threads
+    std::lock_guard<std::mutex> lock(initMutex_);
+    if (initialised_.load()) return true;  // Already initialised
+
     audioGraph_ = std::make_unique<AudioGraph>();
     bool ok = audioGraph_->initialise(sampleRate, bufferSize);
     if (ok) {
         registerParameters();
+        initialised_.store(true);
     }
     return ok;
 }
@@ -548,6 +553,8 @@ std::string Engine::getJuceVersion()
 
 std::vector<std::string> Engine::getAudioDevices()
 {
+    // Guard against concurrent access with initialise() — both touch JUCE audio system
+    std::lock_guard<std::mutex> lock(getInstance().initMutex_);
     juce::MessageManager::getInstance();
 
     juce::AudioDeviceManager manager;

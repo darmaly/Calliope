@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
+#include <atomic>
 #include "calliope/audio_graph.h"
 #include "calliope/command_dispatcher.h"
 #include "calliope/parameter_registry.h"
@@ -91,6 +93,8 @@ private:
     Engine() = default;
     ~Engine();
 
+    std::mutex initMutex_;
+    std::atomic<bool> initialised_{false};
     std::unique_ptr<AudioGraph> audioGraph_;
     CommandDispatcher dispatcher_;
     ParameterRegistry paramRegistry_;
