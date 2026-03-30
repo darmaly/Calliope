@@ -70,6 +70,18 @@ interface NativeAddon {
     callback: (event: { type: string; command: string; data: string }) => void
   ): void
   unsubscribeFromEvents(): void
+
+  // Phase 10.1 — Clip operations
+  addClip(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  removeClip(clipId: string): Promise<boolean>
+  updateClip(clip: {
+    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
+    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
+  }): Promise<boolean>
+  clearClips(): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {
