@@ -8,6 +8,7 @@
 #include "calliope/command_dispatcher.h"
 #include "calliope/parameter_registry.h"
 #include "calliope/project_state.h"
+#include "calliope/audio_exporter.h"
 
 namespace calliope {
 
@@ -68,6 +69,12 @@ public:
     ParameterRegistry& getParameterRegistry();
     ProjectState getProjectState() const;
 
+    // Metering (delegates to AudioGraph)
+    AudioGraph::AllMeterLevels getMeterLevels() const;
+
+    // Audio export
+    AudioExporter& getAudioExporter();
+
     // State queries
     struct TransportStateInfo {
         std::string state;  // "stopped", "playing", "paused"
@@ -96,6 +103,7 @@ private:
     std::mutex initMutex_;
     std::atomic<bool> initialised_{false};
     std::unique_ptr<AudioGraph> audioGraph_;
+    std::unique_ptr<AudioExporter> audioExporter_;
     CommandDispatcher dispatcher_;
     ParameterRegistry paramRegistry_;
 

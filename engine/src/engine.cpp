@@ -1,5 +1,6 @@
 #include "calliope/engine.h"
 #include "calliope/project_state.h"
+#include "calliope/audio_exporter.h"
 #include "calliope/effects/parametric_eq.h"
 #include "calliope/effects/compressor.h"
 #include "calliope/effects/reverb.h"
@@ -36,6 +37,7 @@ bool Engine::initialise(double sampleRate, int bufferSize)
     audioGraph_ = std::make_unique<AudioGraph>();
     bool ok = audioGraph_->initialise(sampleRate, bufferSize);
     if (ok) {
+        audioExporter_ = std::make_unique<AudioExporter>(*this);
         registerParameters();
         initialised_.store(true);
     }
@@ -44,6 +46,7 @@ bool Engine::initialise(double sampleRate, int bufferSize)
 
 void Engine::shutdown()
 {
+    audioExporter_.reset();
     if (audioGraph_) {
         audioGraph_->shutdown();
         audioGraph_.reset();
@@ -222,6 +225,18 @@ void Engine::unregisterEffectParameters(const juce::String& trackId, int slotInd
 {
     juce::String prefix = "effects." + trackId + "." + juce::String(slotIndex) + ".";
     paramRegistry_.removeParametersWithPrefix(prefix);
+}
+
+AudioGraph::AllMeterLevels Engine::getMeterLevels() const
+{
+    if (!audioGraph_) return {};
+    return audioGraph_->getMeterLevels();
+}
+
+AudioExporter& Engine::getAudioExporter()
+{
+    assert(audioExporter_ && "Engine not initialised");
+    return *audioExporter_;
 }
 
 // --- Convenience wrappers ---

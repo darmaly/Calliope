@@ -16,6 +16,15 @@ interface AudioConfig {
   initialised: boolean
 }
 
+interface MeterLevels {
+  [trackId: string]: { peakLeft: number; peakRight: number }
+}
+
+interface ProjectResult {
+  success: boolean
+  filePath?: string
+}
+
 interface CalliopeAPI {
   // Phase 1
   getEngineInfo(): Promise<{ juceVersion: string; audioDevices: string[] }>
@@ -78,6 +87,43 @@ interface CalliopeAPI {
   // Event subscription
   onCommandEvent(callback: (event: { type: string; command: string; data: string }) => void): void
   removeCommandEventListener(): void
+
+  // Phase 8 — Mixer / Metering
+  getMeterLevels(): Promise<MeterLevels>
+  setTrackVolume(trackId: string, volume: number): Promise<unknown>
+  setTrackPan(trackId: string, pan: number): Promise<unknown>
+
+  // Phase 9 — Project save/load
+  projectSave(filePath?: string): Promise<ProjectResult>
+  projectSaveAs(): Promise<ProjectResult>
+  projectLoad(): Promise<ProjectResult>
+  projectNew(): Promise<void>
+  projectGetInfo(): Promise<unknown>
+  projectSetAutosave(enabled: boolean, intervalMs?: number): Promise<void>
+  projectGetAutosaveConfig(): Promise<unknown>
+  projectMarkDirty(): Promise<void>
+  onProjectAutosaved(callback: (data: { filePath: string; timestamp: string }) => void): void
+  removeProjectAutosavedListener(): void
+
+  // Phase 9 — Export
+  exportAudio(params: {
+    outputPath: string
+    format: string
+    mp3Bitrate: number
+    totalBeats: number
+    midiEventsJson: string
+  }): Promise<unknown>
+  exportStems(params: {
+    outputDir: string
+    totalBeats: number
+    midiEventsJson: string
+  }): Promise<unknown>
+  loadProjectState(json: string): Promise<unknown>
+  onExportProgress(callback: (percent: number) => void): void
+  removeExportProgressListener(): void
+  showExportPathDialog(format: string): Promise<string | null>
+  onShowExportDialog(callback: () => void): void
+  removeShowExportDialogListener(): void
 }
 
 declare global {

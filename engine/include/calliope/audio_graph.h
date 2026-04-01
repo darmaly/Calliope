@@ -51,6 +51,18 @@ public:
     // Clip scheduler access (Phase 10.1)
     ClipScheduler& getClipScheduler();
 
+    // Metering
+    struct AllMeterLevels {
+        struct TrackMeter {
+            std::string trackId;
+            float rmsLeft = 0.f, rmsRight = 0.f;
+            float peakLeft = 0.f, peakRight = 0.f;
+        };
+        std::vector<TrackMeter> tracks;
+        TrackMeter master;
+    };
+    AllMeterLevels getMeterLevels() const;
+
 private:
     juce::AudioDeviceManager deviceManager_;
     juce::AudioProcessorPlayer player_;

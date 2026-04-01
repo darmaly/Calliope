@@ -68,9 +68,8 @@ bool AudioGraph::initialise(double sampleRate, int bufferSize)
     // Ensure message manager exists
     juce::MessageManager::getInstance();
 
-    // Configure and prepare the graph
+    // Configure the graph (prepareToPlay is deferred until after nodes/connections are added)
     graph_.setPlayConfigDetails(0, 2, sampleRate, bufferSize);
-    graph_.prepareToPlay(sampleRate, bufferSize);
     graph_.setPlayHead(&transport_);
 
     // Set transport sample rate
@@ -149,6 +148,9 @@ bool AudioGraph::initialise(double sampleRate, int bufferSize)
     graph_.addConnection({{masterNode_->nodeID, 1}, {masterChainNode_->nodeID, 1}});
     graph_.addConnection({{masterChainNode_->nodeID, 0}, {outputNode_->nodeID, 0}});
     graph_.addConnection({{masterChainNode_->nodeID, 1}, {outputNode_->nodeID, 1}});
+
+    // Now that all nodes and connections are in place, prepare the graph
+    graph_.prepareToPlay(sampleRate, bufferSize);
 
     // Configure AudioDeviceManager
     juce::AudioDeviceManager::AudioDeviceSetup setup;
