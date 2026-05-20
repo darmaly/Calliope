@@ -1,4 +1,4 @@
-# LuneyTunes
+# Calliope
 
 An AI-powered digital audio workstation that lets anyone create professional-grade music through natural language. Describe what you want -- a sound, a melody, a full arrangement -- and AI agents operate the DAW directly, acting as a virtual producer.
 
