@@ -29,5 +29,7 @@ cmake_install.cmake
 .env
 .env.local
 
-# Claude Code worktrees
-.claude/worktrees/
+# Claude Code & GSD planning artifacts (local-only, removed from history 2026-05-19)
+.claude/
+.planning/
+CLAUDE.md
