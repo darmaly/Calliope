@@ -1,3 +1,18 @@
+// Node-API surface of the audio engine.
+//
+// Threading model
+// ---------------
+// Almost every call here is cheap (an atomic store, a graph edit, a snapshot
+// publish) and runs synchronously on the JavaScript thread, returning an
+// already-resolved Promise. That is deliberate: the previous version started a
+// detached thread per call, so two calls made in order (drag a fader, move a
+// note twice) could be applied out of order, and concurrent calls raced on the
+// engine's non-audio state. Running them on one thread makes the order of
+// effects the order of calls.
+//
+// Only calls that can block for a noticeable time run on a worker thread:
+// opening and closing the audio device, and offline export.
+
 #include <napi.h>
 #include "bridge.h"
 #include "calliope/engine.h"
@@ -7,508 +22,458 @@
 #include "calliope/commands/instrument_commands.h"
 #include "calliope/commands/effect_commands.h"
 #include "calliope/project_state.h"
-#include "calliope/project_serializer.h"
 #include "calliope/clip_scheduler.h"
 #include "calliope/parameter_registry.h"
 #include "calliope/audio_exporter.h"
-#include <thread>
+#include <atomic>
+#include <functional>
 #include <memory>
+#include <thread>
 
-Napi::Value GetEngineInfo(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
+using calliope::Engine;
 
+namespace {
+
+// Set while an offline export owns the graph. The UI is modal during export;
+// this makes the engine refuse edits even if a call slips through.
+std::atomic<bool> exportInProgress{false};
+
+bool engineReady()
+{
+    return Engine::getInstance().isInitialised() && !exportInProgress.load();
+}
+
+juce::String toJuce(const std::string& utf8)
+{
+    return juce::String::fromUTF8(utf8.c_str());
+}
+
+Napi::Value resolved(Napi::Env env, Napi::Value value)
+{
     auto deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(value);
+    return deferred.Promise();
+}
 
+Napi::Value resolvedBool(Napi::Env env, bool value)
+{
+    return resolved(env, Napi::Boolean::New(env, value));
+}
+
+// Runs `work` on its own thread, then resolves the returned Promise on the
+// JavaScript thread with convert(env, result).
+template <typename Result>
+Napi::Value runAsync(Napi::Env env, const char* name,
+                     std::function<Result()> work,
+                     std::function<Napi::Value(Napi::Env, const Result&)> convert)
+{
+    auto deferred = Napi::Promise::Deferred::New(env);
     auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetEngineInfo",
-        0,  // unlimited queue
-        1   // initial thread count
-    );
+        env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}), name, 0, 1);
 
-    std::thread([deferred, tsfn]() {
-        auto juceVersion = calliope::Engine::getJuceVersion();
-        auto devices = calliope::Engine::getAudioDevices();
+    std::thread([deferred, tsfn, work = std::move(work), convert = std::move(convert)]() mutable {
+        auto result = std::make_shared<Result>(work());
+        tsfn.BlockingCall([deferred, result, convert](Napi::Env env, Napi::Function) {
+            deferred.Resolve(convert(env, *result));
+        });
+        tsfn.Release();
+    }).detach();
 
-        tsfn.BlockingCall([deferred, juceVersion, devices](
-            Napi::Env env, Napi::Function) {
+    return deferred.Promise();
+}
+
+Napi::Value boolToJs(Napi::Env env, const bool& value)
+{
+    return Napi::Boolean::New(env, value);
+}
+
+// --- Typed, defaulted property access ---
+
+std::string getString(const Napi::Object& obj, const char* key, const std::string& fallback = {})
+{
+    auto value = obj.Get(key);
+    return value.IsString() ? value.As<Napi::String>().Utf8Value() : fallback;
+}
+
+double getNumber(const Napi::Object& obj, const char* key, double fallback = 0.0)
+{
+    auto value = obj.Get(key);
+    return value.IsNumber() ? value.As<Napi::Number>().DoubleValue() : fallback;
+}
+
+bool getBool(const Napi::Object& obj, const char* key, bool fallback = false)
+{
+    auto value = obj.Get(key);
+    return value.IsBoolean() ? value.As<Napi::Boolean>().Value() : fallback;
+}
+
+// Velocities arrive as MIDI values (1-127) from the editor; the engine works
+// in 0..1. Values already in 0..1 are taken as they are.
+float toUnitVelocity(double velocity)
+{
+    if (velocity > 1.0)
+        velocity /= 127.0;
+    return static_cast<float>(juce::jlimit(0.0, 1.0, velocity));
+}
+
+Napi::Value varToJs(Napi::Env env, const juce::var& value)
+{
+    if (value.isBool())   return Napi::Boolean::New(env, static_cast<bool>(value));
+    if (value.isInt() || value.isInt64() || value.isDouble())
+        return Napi::Number::New(env, static_cast<double>(value));
+    if (value.isString()) return Napi::String::New(env, value.toString().toStdString());
+    return env.Null();
+}
+
+} // namespace
+
+// ============================================================================
+// Engine information and test tone
+// ============================================================================
+
+Napi::Value GetEngineInfo(const Napi::CallbackInfo& info)
+{
+    struct Result {
+        std::string juceVersion;
+        std::vector<std::string> devices;
+    };
+
+    return runAsync<Result>(
+        info.Env(), "GetEngineInfo",
+        []() { return Result{Engine::getJuceVersion(), Engine::getAudioDevices()}; },
+        [](Napi::Env env, const Result& r) -> Napi::Value {
             auto result = Napi::Object::New(env);
-            result.Set("juceVersion", Napi::String::New(env, juceVersion));
-
-            auto deviceArray = Napi::Array::New(env, devices.size());
-            for (size_t i = 0; i < devices.size(); i++) {
-                deviceArray.Set(i, Napi::String::New(env, devices[i]));
-            }
-            result.Set("audioDevices", deviceArray);
-
-            deferred.Resolve(result);
+            result.Set("juceVersion", Napi::String::New(env, r.juceVersion));
+            auto devices = Napi::Array::New(env, r.devices.size());
+            for (size_t i = 0; i < r.devices.size(); ++i)
+                devices.Set(static_cast<uint32_t>(i), Napi::String::New(env, r.devices[i]));
+            result.Set("audioDevices", devices);
+            return result;
         });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
 }
 
-Napi::Value StartTestTone(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
+Napi::Value StartTestTone(const Napi::CallbackInfo& info)
+{
     double frequency = 440.0;
-    if (info.Length() > 0 && info[0].IsNumber()) {
+    if (info.Length() > 0 && info[0].IsNumber())
         frequency = info[0].As<Napi::Number>().DoubleValue();
-    }
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "StartTestTone",
-        0,
-        1
-    );
-
-    std::thread([deferred, tsfn, frequency]() {
-        bool success = calliope::Engine::startTestTone(frequency);
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    return runAsync<bool>(
+        info.Env(), "StartTestTone",
+        [frequency]() { return Engine::startTestTone(frequency); },
+        boolToJs);
 }
 
-Napi::Value StopTestTone(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "StopTestTone",
-        0,
-        1
-    );
-
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::stopTestTone();
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+Napi::Value StopTestTone(const Napi::CallbackInfo& info)
+{
+    return runAsync<bool>(
+        info.Env(), "StopTestTone",
+        []() { Engine::stopTestTone(); return true; },
+        [](Napi::Env env, const bool&) -> Napi::Value { return env.Undefined(); });
 }
 
 // ============================================================================
-// Phase 2 — Engine lifecycle
+// Lifecycle
 // ============================================================================
 
-Napi::Value InitialiseEngine(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
+Napi::Value InitialiseEngine(const Napi::CallbackInfo& info)
+{
     double sampleRate = 44100.0;
     int bufferSize = 512;
-    if (info.Length() > 0 && info[0].IsNumber()) {
+    if (info.Length() > 0 && info[0].IsNumber())
         sampleRate = info[0].As<Napi::Number>().DoubleValue();
-    }
-    if (info.Length() > 1 && info[1].IsNumber()) {
+    if (info.Length() > 1 && info[1].IsNumber())
         bufferSize = info[1].As<Napi::Number>().Int32Value();
-    }
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "InitialiseEngine",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, sampleRate, bufferSize]() {
-        bool success = calliope::Engine::getInstance().initialise(sampleRate, bufferSize);
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    return runAsync<bool>(
+        info.Env(), "InitialiseEngine",
+        [sampleRate, bufferSize]() { return Engine::getInstance().initialise(sampleRate, bufferSize); },
+        boolToJs);
 }
 
-Napi::Value ShutdownEngine(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
+Napi::Value ShutdownEngine(const Napi::CallbackInfo& info)
+{
+    if (exportInProgress.load())
+        return resolved(info.Env(), info.Env().Undefined());
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "ShutdownEngine",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::getInstance().shutdown();
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    return runAsync<bool>(
+        info.Env(), "ShutdownEngine",
+        []() { Engine::getInstance().shutdown(); return true; },
+        [](Napi::Env env, const bool&) -> Napi::Value { return env.Undefined(); });
 }
 
-// ============================================================================
-// Phase 2 — Transport
-// ============================================================================
-
-Napi::Value TransportPlay(const Napi::CallbackInfo& info) {
+Napi::Value SetBufferSize(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "TransportPlay",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::getInstance().transportPlay();
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value TransportStop(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "TransportStop",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::getInstance().transportStop();
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value TransportPause(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "TransportPause",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::getInstance().transportPause();
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value SetBpm(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsNumber()) {
-        Napi::TypeError::New(env, "Expected bpm as number").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    double bpm = info[0].As<Napi::Number>().DoubleValue();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetBpm",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, bpm]() {
-        calliope::Engine::getInstance().setBpm(bpm);
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value SetTimeSignature(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
-        Napi::TypeError::New(env, "Expected numerator and denominator as numbers").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    int numerator = info[0].As<Napi::Number>().Int32Value();
-    int denominator = info[1].As<Napi::Number>().Int32Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetTimeSignature",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, numerator, denominator]() {
-        calliope::Engine::getInstance().setTimeSignature(numerator, denominator);
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value SetLoopRegion(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 3 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsBoolean()) {
-        Napi::TypeError::New(env, "Expected startBeat, endBeat (numbers) and enabled (boolean)").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    double startBeat = info[0].As<Napi::Number>().DoubleValue();
-    double endBeat = info[1].As<Napi::Number>().DoubleValue();
-    bool enabled = info[2].As<Napi::Boolean>().Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetLoopRegion",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, startBeat, endBeat, enabled]() {
-        calliope::Engine::getInstance().setLoopRegion(startBeat, endBeat, enabled);
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-// ============================================================================
-// Phase 2 — Config
-// ============================================================================
-
-Napi::Value SetBufferSize(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
     if (info.Length() < 1 || !info[0].IsNumber()) {
         Napi::TypeError::New(env, "Expected bufferSize as number").ThrowAsJavaScriptException();
         return env.Undefined();
     }
+    if (!engineReady())
+        return resolvedBool(env, false);
 
-    int bufferSize = info[0].As<Napi::Number>().Int32Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetBufferSize",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, bufferSize]() {
-        bool success = calliope::Engine::getInstance().setBufferSize(bufferSize);
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    const int bufferSize = info[0].As<Napi::Number>().Int32Value();
+    return runAsync<bool>(
+        env, "SetBufferSize",
+        [bufferSize]() { return Engine::getInstance().setBufferSize(bufferSize); },
+        boolToJs);
 }
 
 // ============================================================================
-// Phase 2 — Metronome
+// Transport and metronome
 // ============================================================================
 
-Napi::Value SetMetronomeEnabled(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
+Napi::Value TransportPlay(const Napi::CallbackInfo& info)
+{
+    if (engineReady()) Engine::getInstance().transportPlay();
+    return resolved(info.Env(), info.Env().Undefined());
+}
 
+Napi::Value TransportStop(const Napi::CallbackInfo& info)
+{
+    if (engineReady()) Engine::getInstance().transportStop();
+    return resolved(info.Env(), info.Env().Undefined());
+}
+
+Napi::Value TransportPause(const Napi::CallbackInfo& info)
+{
+    if (engineReady()) Engine::getInstance().transportPause();
+    return resolved(info.Env(), info.Env().Undefined());
+}
+
+Napi::Value SetBpm(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsNumber()) {
+        Napi::TypeError::New(env, "Expected BPM as number").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (engineReady())
+        Engine::getInstance().setBpm(info[0].As<Napi::Number>().DoubleValue());
+    return resolved(env, env.Undefined());
+}
+
+Napi::Value SetTimeSignature(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
+        Napi::TypeError::New(env, "Expected numerator and denominator as numbers").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (engineReady())
+        Engine::getInstance().setTimeSignature(info[0].As<Napi::Number>().Int32Value(),
+                                               info[1].As<Napi::Number>().Int32Value());
+    return resolved(env, env.Undefined());
+}
+
+Napi::Value SetLoopRegion(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 3 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsBoolean()) {
+        Napi::TypeError::New(env, "Expected startBeat, endBeat, enabled").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (engineReady())
+        Engine::getInstance().setLoopRegion(info[0].As<Napi::Number>().DoubleValue(),
+                                            info[1].As<Napi::Number>().DoubleValue(),
+                                            info[2].As<Napi::Boolean>().Value());
+    return resolved(env, env.Undefined());
+}
+
+Napi::Value SetMetronomeEnabled(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsBoolean()) {
         Napi::TypeError::New(env, "Expected enabled as boolean").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-
-    bool enabled = info[0].As<Napi::Boolean>().Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetMetronomeEnabled",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, enabled]() {
-        calliope::Engine::getInstance().setMetronomeEnabled(enabled);
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    if (engineReady())
+        Engine::getInstance().setMetronomeEnabled(info[0].As<Napi::Boolean>().Value());
+    return resolved(env, env.Undefined());
 }
 
-Napi::Value SetMetronomeVolume(const Napi::CallbackInfo& info) {
+Napi::Value SetMetronomeVolume(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
-
     if (info.Length() < 1 || !info[0].IsNumber()) {
         Napi::TypeError::New(env, "Expected volume as number").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-
-    float volume = info[0].As<Napi::Number>().FloatValue();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SetMetronomeVolume",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, volume]() {
-        calliope::Engine::getInstance().setMetronomeVolume(volume);
-
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) {
-            deferred.Resolve(env.Undefined());
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    if (engineReady())
+        Engine::getInstance().setMetronomeVolume(info[0].As<Napi::Number>().FloatValue());
+    return resolved(env, env.Undefined());
 }
 
 // ============================================================================
-// Phase 2 — State queries
+// State queries
 // ============================================================================
 
-Napi::Value GetTransportState(const Napi::CallbackInfo& info) {
+Napi::Value GetTransportState(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
+    auto state = Engine::getInstance().getTransportState();
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetTransportState",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        auto state = calliope::Engine::getInstance().getTransportState();
-
-        tsfn.BlockingCall([deferred, state](Napi::Env env, Napi::Function) {
-            auto result = Napi::Object::New(env);
-            result.Set("state", Napi::String::New(env, state.state));
-            result.Set("bpm", Napi::Number::New(env, state.bpm));
-            result.Set("timeSigNumerator", Napi::Number::New(env, state.timeSigNumerator));
-            result.Set("timeSigDenominator", Napi::Number::New(env, state.timeSigDenominator));
-            result.Set("samplePosition", Napi::Number::New(env, static_cast<double>(state.samplePosition)));
-            result.Set("ppqPosition", Napi::Number::New(env, state.ppqPosition));
-            result.Set("looping", Napi::Boolean::New(env, state.looping));
-            result.Set("loopStartBeat", Napi::Number::New(env, state.loopStartBeat));
-            result.Set("loopEndBeat", Napi::Number::New(env, state.loopEndBeat));
-
-            deferred.Resolve(result);
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    auto result = Napi::Object::New(env);
+    result.Set("state", Napi::String::New(env, state.state));
+    result.Set("bpm", Napi::Number::New(env, state.bpm));
+    result.Set("timeSigNumerator", Napi::Number::New(env, state.timeSigNumerator));
+    result.Set("timeSigDenominator", Napi::Number::New(env, state.timeSigDenominator));
+    result.Set("samplePosition", Napi::Number::New(env, static_cast<double>(state.samplePosition)));
+    result.Set("ppqPosition", Napi::Number::New(env, state.ppqPosition));
+    result.Set("looping", Napi::Boolean::New(env, state.looping));
+    result.Set("loopStartBeat", Napi::Number::New(env, state.loopStartBeat));
+    result.Set("loopEndBeat", Napi::Number::New(env, state.loopEndBeat));
+    return resolved(env, result);
 }
 
-Napi::Value GetAudioConfig(const Napi::CallbackInfo& info) {
+Napi::Value GetAudioConfig(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
+    auto config = Engine::getInstance().getAudioConfig();
 
-    auto deferred = Napi::Promise::Deferred::New(env);
+    auto result = Napi::Object::New(env);
+    result.Set("sampleRate", Napi::Number::New(env, config.sampleRate));
+    result.Set("bufferSize", Napi::Number::New(env, config.bufferSize));
+    result.Set("initialised", Napi::Boolean::New(env, config.initialised));
+    return resolved(env, result);
+}
 
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetAudioConfig",
-        0, 1
-    );
+Napi::Value GetMeterLevels(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    auto levels = Engine::getInstance().getMeterLevels();
 
-    std::thread([deferred, tsfn]() {
-        auto config = calliope::Engine::getInstance().getAudioConfig();
+    auto toObject = [&env](const calliope::AudioGraph::AllMeterLevels::TrackMeter& m) {
+        auto obj = Napi::Object::New(env);
+        obj.Set("rmsLeft", Napi::Number::New(env, m.rmsLeft));
+        obj.Set("rmsRight", Napi::Number::New(env, m.rmsRight));
+        obj.Set("peakLeft", Napi::Number::New(env, m.peakLeft));
+        obj.Set("peakRight", Napi::Number::New(env, m.peakRight));
+        return obj;
+    };
 
-        tsfn.BlockingCall([deferred, config](Napi::Env env, Napi::Function) {
-            auto result = Napi::Object::New(env);
-            result.Set("sampleRate", Napi::Number::New(env, config.sampleRate));
-            result.Set("bufferSize", Napi::Number::New(env, config.bufferSize));
-            result.Set("initialised", Napi::Boolean::New(env, config.initialised));
-
-            deferred.Resolve(result);
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    auto result = Napi::Object::New(env);
+    for (const auto& track : levels.tracks)
+        result.Set(track.trackId, toObject(track));
+    result.Set("master", toObject(levels.master));
+    return resolved(env, result);
 }
 
 // ============================================================================
-// Phase 3 — Command dispatch
+// Tracks
+// ============================================================================
+
+Napi::Value AddTrack(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected {trackId: string, instrument: string}").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    auto obj = info[0].As<Napi::Object>();
+    const auto trackId = getString(obj, "trackId");
+    const auto instrument = getString(obj, "instrument");
+
+    if (!engineReady())
+        return resolvedBool(env, false);
+    return resolvedBool(env, Engine::getInstance().addTrack(trackId, instrument));
+}
+
+Napi::Value RemoveTrack(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected trackId as string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (!engineReady())
+        return resolvedBool(env, false);
+    return resolvedBool(env, Engine::getInstance().removeTrack(info[0].As<Napi::String>().Utf8Value()));
+}
+
+Napi::Value ResetProject(const Napi::CallbackInfo& info)
+{
+    if (!engineReady())
+        return resolvedBool(info.Env(), false);
+    Engine::getInstance().resetProject();
+    return resolvedBool(info.Env(), true);
+}
+
+// ============================================================================
+// Clips
+// ============================================================================
+
+static bool parseClipObject(const Napi::Object& obj, calliope::MidiClipData& clip)
+{
+    clip.clipId = getString(obj, "clipId");
+    clip.trackId = getString(obj, "trackId");
+    clip.startBeat = getNumber(obj, "startBeat");
+    clip.lengthBeats = getNumber(obj, "lengthBeats");
+    if (clip.clipId.empty() || clip.trackId.empty())
+        return false;
+
+    auto notesValue = obj.Get("notes");
+    if (notesValue.IsArray()) {
+        auto notes = notesValue.As<Napi::Array>();
+        clip.notes.reserve(notes.Length());
+        for (uint32_t i = 0; i < notes.Length(); ++i) {
+            auto noteValue = notes.Get(i);
+            if (!noteValue.IsObject()) continue;
+            auto noteObj = noteValue.As<Napi::Object>();
+
+            calliope::MidiNoteData note;
+            note.pitch = static_cast<int>(getNumber(noteObj, "pitch", 60.0));
+            note.startBeat = getNumber(noteObj, "startBeat");
+            note.lengthBeats = getNumber(noteObj, "lengthBeats");
+            note.velocity = toUnitVelocity(getNumber(noteObj, "velocity", 100.0));
+            clip.notes.push_back(note);
+        }
+    }
+    return true;
+}
+
+static Napi::Value setClip(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected clip object").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    calliope::MidiClipData clip;
+    if (!parseClipObject(info[0].As<Napi::Object>(), clip) || !engineReady())
+        return resolvedBool(env, false);
+
+    Engine::getInstance().getClipScheduler().updateClip(clip);
+    return resolvedBool(env, true);
+}
+
+Napi::Value AddClip(const Napi::CallbackInfo& info)    { return setClip(info); }
+Napi::Value UpdateClip(const Napi::CallbackInfo& info) { return setClip(info); }
+
+Napi::Value RemoveClip(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected clipId as string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (!engineReady())
+        return resolvedBool(env, false);
+    Engine::getInstance().getClipScheduler().removeClip(info[0].As<Napi::String>().Utf8Value());
+    return resolvedBool(env, true);
+}
+
+Napi::Value ClearClips(const Napi::CallbackInfo& info)
+{
+    if (!engineReady())
+        return resolvedBool(info.Env(), false);
+    Engine::getInstance().getClipScheduler().clearClips();
+    return resolvedBool(info.Env(), true);
+}
+
+// ============================================================================
+// Command dispatch
 // ============================================================================
 
 // Persistent event subscription state
@@ -519,38 +484,48 @@ class BridgeListener : public calliope::CommandDispatcher::Listener {
 public:
     explicit BridgeListener(Napi::ThreadSafeFunction tsfn) : tsfn_(tsfn) {}
 
-    void commandExecuted(const calliope::CommandEvent& event) override {
-        auto name = event.commandName.toStdString();
-        auto data = juce::JSON::toString(event.data).toStdString();
-        bool isUndo = event.isUndo;
-        tsfn_.BlockingCall([name, data, isUndo](Napi::Env env, Napi::Function callback) {
-            auto obj = Napi::Object::New(env);
-            obj.Set("type", Napi::String::New(env, "execute"));
-            obj.Set("command", Napi::String::New(env, name));
-            obj.Set("data", Napi::String::New(env, data));
-            callback.Call({obj});
-        });
-    }
-
-    void commandUndone(const calliope::CommandEvent& event) override {
-        auto name = event.commandName.toStdString();
-        auto data = juce::JSON::toString(event.data).toStdString();
-        tsfn_.BlockingCall([name, data](Napi::Env env, Napi::Function callback) {
-            auto obj = Napi::Object::New(env);
-            obj.Set("type", Napi::String::New(env, "undo"));
-            obj.Set("command", Napi::String::New(env, name));
-            obj.Set("data", Napi::String::New(env, data));
-            callback.Call({obj});
-        });
-    }
+    void commandExecuted(const calliope::CommandEvent& event) override { emit("execute", event); }
+    void commandUndone(const calliope::CommandEvent& event) override   { emit("undo", event); }
 
 private:
+    void emit(const char* type, const calliope::CommandEvent& event)
+    {
+        std::string typeName = type;
+        auto name = event.commandName.toStdString();
+        auto data = juce::JSON::toString(event.data).toStdString();
+        tsfn_.NonBlockingCall([typeName, name, data](Napi::Env env, Napi::Function callback) {
+            auto obj = Napi::Object::New(env);
+            obj.Set("type", Napi::String::New(env, typeName));
+            obj.Set("command", Napi::String::New(env, name));
+            obj.Set("data", Napi::String::New(env, data));
+            callback.Call({obj});
+        });
+    }
+
     Napi::ThreadSafeFunction tsfn_;
 };
 
 static std::unique_ptr<BridgeListener> bridgeListener;
 
-Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
+// Supported commands:
+//   transport.play | transport.stop | transport.pause
+//   transport.setBpm            {bpm}
+//   transport.setTimeSignature  {numerator, denominator}
+//   transport.setLoopRegion     {startBeat, endBeat, enabled}
+//   metronome.setEnabled        {enabled}
+//   metronome.setVolume         {volume}
+//   master.setVolume            {volume}
+//   parameter.set               {id, value}
+//   instrument.noteOn           {trackId, note, velocity}
+//   instrument.noteOff          {trackId, note}
+//   drumMachine.loadSample      {trackId, padIndex, filePath}
+//   effect.insert               {trackId, effectType, position?}
+//   effect.remove               {trackId, position}
+//   effect.reorder              {trackId, fromPosition, toPosition}
+//   effect.bypass               {trackId, position, bypassed}
+// trackId is a track's ID, or "master" for the effect commands.
+Napi::Value DispatchCommand(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
 
     if (info.Length() < 1 || !info[0].IsObject()) {
@@ -559,300 +534,170 @@ Napi::Value DispatchCommand(const Napi::CallbackInfo& info) {
     }
 
     auto cmdObj = info[0].As<Napi::Object>();
-    std::string command = cmdObj.Get("command").As<Napi::String>().Utf8Value();
+    const std::string command = getString(cmdObj, "command");
+    auto paramsValue = cmdObj.Get("params");
+    auto params = paramsValue.IsObject() ? paramsValue.As<Napi::Object>() : Napi::Object::New(env);
 
-    // Extract all parameters on the JS thread as plain C++ types
-    double bpm = 0.0;
-    int numerator = 4, denominator = 4;
-    double startBeat = 0.0, endBeat = 0.0;
-    bool enabled = false;
-    float volume = 0.0f;
-    std::string paramId;
-    double paramValueDouble = 0.0;
-    bool paramValueBool = false;
-    std::string paramValueType = "double";
+    if (!engineReady())
+        return resolvedBool(env, false);
 
-    // Phase 4 — Instrument command parameters
-    std::string instrument;
-    int midiNote = 60;
-    float velocity = 0.8f;
-    int padIndex = 0;
-    std::string filePath;
+    auto& engine = Engine::getInstance();
+    auto& graph = engine.getAudioGraph();
+    const auto trackId = getString(params, "trackId", getString(params, "instrument"));
+    std::unique_ptr<calliope::Command> cmd;
 
-    // Phase 5 — Effect command parameters
-    std::string trackId;
-    std::string effectType;
-    int effectPosition = -1;
-    int effectFromPosition = 0;
-    int effectToPosition = 0;
-    bool effectBypassed = false;
-
-    if (cmdObj.Has("params") && cmdObj.Get("params").IsObject()) {
-        auto params = cmdObj.Get("params").As<Napi::Object>();
-        if (params.Has("bpm") && params.Get("bpm").IsNumber())
-            bpm = params.Get("bpm").As<Napi::Number>().DoubleValue();
-        if (params.Has("numerator") && params.Get("numerator").IsNumber())
-            numerator = params.Get("numerator").As<Napi::Number>().Int32Value();
-        if (params.Has("denominator") && params.Get("denominator").IsNumber())
-            denominator = params.Get("denominator").As<Napi::Number>().Int32Value();
-        if (params.Has("startBeat") && params.Get("startBeat").IsNumber())
-            startBeat = params.Get("startBeat").As<Napi::Number>().DoubleValue();
-        if (params.Has("endBeat") && params.Get("endBeat").IsNumber())
-            endBeat = params.Get("endBeat").As<Napi::Number>().DoubleValue();
-        if (params.Has("enabled") && params.Get("enabled").IsBoolean())
-            enabled = params.Get("enabled").As<Napi::Boolean>().Value();
-        if (params.Has("volume") && params.Get("volume").IsNumber())
-            volume = params.Get("volume").As<Napi::Number>().FloatValue();
-        if (params.Has("id") && params.Get("id").IsString())
-            paramId = params.Get("id").As<Napi::String>().Utf8Value();
-        // Phase 4 — Instrument params
-        if (params.Has("instrument") && params.Get("instrument").IsString())
-            instrument = params.Get("instrument").As<Napi::String>().Utf8Value();
-        if (params.Has("note") && params.Get("note").IsNumber())
-            midiNote = params.Get("note").As<Napi::Number>().Int32Value();
-        if (params.Has("velocity") && params.Get("velocity").IsNumber())
-            velocity = params.Get("velocity").As<Napi::Number>().FloatValue();
-        if (params.Has("padIndex") && params.Get("padIndex").IsNumber())
-            padIndex = params.Get("padIndex").As<Napi::Number>().Int32Value();
-        if (params.Has("filePath") && params.Get("filePath").IsString())
-            filePath = params.Get("filePath").As<Napi::String>().Utf8Value();
-        // Phase 5 — Effect params
-        if (params.Has("trackId") && params.Get("trackId").IsString())
-            trackId = params.Get("trackId").As<Napi::String>().Utf8Value();
-        if (params.Has("effectType") && params.Get("effectType").IsString())
-            effectType = params.Get("effectType").As<Napi::String>().Utf8Value();
-        if (params.Has("position") && params.Get("position").IsNumber())
-            effectPosition = params.Get("position").As<Napi::Number>().Int32Value();
-        if (params.Has("fromPosition") && params.Get("fromPosition").IsNumber())
-            effectFromPosition = params.Get("fromPosition").As<Napi::Number>().Int32Value();
-        if (params.Has("toPosition") && params.Get("toPosition").IsNumber())
-            effectToPosition = params.Get("toPosition").As<Napi::Number>().Int32Value();
-        if (params.Has("bypassed") && params.Get("bypassed").IsBoolean())
-            effectBypassed = params.Get("bypassed").As<Napi::Boolean>().Value();
-        if (params.Has("value")) {
-            auto val = params.Get("value");
-            if (val.IsNumber()) {
-                paramValueDouble = val.As<Napi::Number>().DoubleValue();
-                paramValueType = "double";
-            } else if (val.IsBoolean()) {
-                paramValueBool = val.As<Napi::Boolean>().Value();
-                paramValueType = "bool";
+    if (command == "transport.play") {
+        cmd = std::make_unique<calliope::PlayCommand>(engine.getTransport());
+    } else if (command == "transport.stop") {
+        cmd = std::make_unique<calliope::StopCommand>(engine.getTransport());
+    } else if (command == "transport.pause") {
+        cmd = std::make_unique<calliope::PauseCommand>(engine.getTransport());
+    } else if (command == "transport.setBpm") {
+        cmd = std::make_unique<calliope::SetBpmCommand>(
+            engine.getTransport(), juce::jlimit(20.0, 999.0, getNumber(params, "bpm", 120.0)));
+    } else if (command == "transport.setTimeSignature") {
+        cmd = std::make_unique<calliope::SetTimeSignatureCommand>(
+            engine.getTransport(),
+            juce::jlimit(1, 32, static_cast<int>(getNumber(params, "numerator", 4))),
+            juce::jlimit(1, 32, static_cast<int>(getNumber(params, "denominator", 4))));
+    } else if (command == "transport.setLoopRegion") {
+        const double startBeat = getNumber(params, "startBeat");
+        const double endBeat = getNumber(params, "endBeat");
+        cmd = std::make_unique<calliope::SetLoopRegionCommand>(
+            engine.getTransport(), startBeat, endBeat,
+            getBool(params, "enabled") && endBeat > startBeat);
+    } else if (command == "metronome.setEnabled") {
+        cmd = std::make_unique<calliope::SetMetronomeEnabledCommand>(
+            graph.getMetronome(), getBool(params, "enabled"));
+    } else if (command == "metronome.setVolume") {
+        cmd = std::make_unique<calliope::SetMetronomeVolumeCommand>(
+            graph.getMetronome(), static_cast<float>(juce::jlimit(0.0, 1.0, getNumber(params, "volume"))));
+    } else if (command == "master.setVolume") {
+        cmd = std::make_unique<calliope::SetMasterVolumeCommand>(
+            graph.getMasterBus(), static_cast<float>(juce::jlimit(0.0, 2.0, getNumber(params, "volume", 1.0))));
+    } else if (command == "parameter.set") {
+        auto value = params.Get("value");
+        juce::var var;
+        if (value.IsBoolean())      var = value.As<Napi::Boolean>().Value();
+        else if (value.IsNumber())  var = value.As<Napi::Number>().DoubleValue();
+        if (!var.isVoid())
+            cmd = std::make_unique<calliope::SetParameterCommand>(
+                engine.getParameterRegistry(), toJuce(getString(params, "id")), var);
+    } else if (command == "instrument.noteOn") {
+        if (auto* instrument = graph.getTrackInstrument(trackId))
+            cmd = std::make_unique<calliope::NoteOnCommand>(
+                *instrument, static_cast<int>(getNumber(params, "note", 60)),
+                toUnitVelocity(getNumber(params, "velocity", 0.8)));
+    } else if (command == "instrument.noteOff") {
+        if (auto* instrument = graph.getTrackInstrument(trackId))
+            cmd = std::make_unique<calliope::NoteOffCommand>(
+                *instrument, static_cast<int>(getNumber(params, "note", 60)));
+    } else if (command == "drumMachine.loadSample") {
+        if (auto* drums = dynamic_cast<calliope::DrumMachineProcessor*>(graph.getTrackInstrument(trackId)))
+            cmd = std::make_unique<calliope::LoadSampleCommand>(
+                *drums, static_cast<int>(getNumber(params, "padIndex")), getString(params, "filePath"));
+    } else if (command.rfind("effect.", 0) == 0) {
+        // An unknown track has no chain. (It used to fall through to the master chain.)
+        const auto chainId = toJuce(trackId);
+        if (auto* chain = engine.findInsertChain(chainId)) {
+            const int position = static_cast<int>(getNumber(params, "position", -1));
+            if (command == "effect.insert") {
+                cmd = std::make_unique<calliope::InsertEffectCommand>(
+                    *chain, engine, chainId, toJuce(getString(params, "effectType")), position);
+            } else if (command == "effect.remove") {
+                cmd = std::make_unique<calliope::RemoveEffectCommand>(*chain, engine, chainId, position);
+            } else if (command == "effect.reorder") {
+                cmd = std::make_unique<calliope::ReorderEffectCommand>(
+                    *chain, engine, chainId,
+                    static_cast<int>(getNumber(params, "fromPosition")),
+                    static_cast<int>(getNumber(params, "toPosition")));
+            } else if (command == "effect.bypass") {
+                if (position >= 0 && position < chain->getNumEffects())
+                    cmd = std::make_unique<calliope::BypassEffectCommand>(
+                        *chain, position, getBool(params, "bypassed"));
             }
         }
     }
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "DispatchCommand",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, command, bpm, numerator, denominator,
-                 startBeat, endBeat, enabled, volume,
-                 paramId, paramValueDouble, paramValueBool, paramValueType,
-                 instrument, midiNote, velocity, padIndex, filePath,
-                 trackId, effectType, effectPosition, effectFromPosition,
-                 effectToPosition, effectBypassed]() {
-        auto& engine = calliope::Engine::getInstance();
-        std::unique_ptr<calliope::Command> cmd;
-
-        if (command == "transport.play") {
-            cmd = std::make_unique<calliope::PlayCommand>(engine.getTransport());
-        } else if (command == "transport.stop") {
-            cmd = std::make_unique<calliope::StopCommand>(engine.getTransport());
-        } else if (command == "transport.pause") {
-            cmd = std::make_unique<calliope::PauseCommand>(engine.getTransport());
-        } else if (command == "transport.setBpm") {
-            cmd = std::make_unique<calliope::SetBpmCommand>(engine.getTransport(), bpm);
-        } else if (command == "transport.setTimeSignature") {
-            cmd = std::make_unique<calliope::SetTimeSignatureCommand>(engine.getTransport(), numerator, denominator);
-        } else if (command == "transport.setLoopRegion") {
-            cmd = std::make_unique<calliope::SetLoopRegionCommand>(engine.getTransport(), startBeat, endBeat, enabled);
-        } else if (command == "metronome.setEnabled") {
-            cmd = std::make_unique<calliope::SetMetronomeEnabledCommand>(engine.getAudioGraph().getMetronome(), enabled);
-        } else if (command == "metronome.setVolume") {
-            cmd = std::make_unique<calliope::SetMetronomeVolumeCommand>(engine.getAudioGraph().getMetronome(), volume);
-        } else if (command == "master.setVolume") {
-            cmd = std::make_unique<calliope::SetMasterVolumeCommand>(engine.getAudioGraph().getMasterBus(), volume);
-        } else if (command == "parameter.set") {
-            juce::var val;
-            if (paramValueType == "bool") {
-                val = paramValueBool;
-            } else {
-                val = paramValueDouble;
-            }
-            cmd = std::make_unique<calliope::SetParameterCommand>(
-                engine.getParameterRegistry(), juce::String(paramId), val);
-        } else if (command == "instrument.noteOn") {
-            // Resolve instrument by name
-            juce::AudioProcessor* proc = nullptr;
-            if (instrument == "polysynth")
-                proc = &engine.getAudioGraph().getPolySynth();
-            else if (instrument == "basssynth")
-                proc = &engine.getAudioGraph().getBassSynth();
-            else if (instrument == "drumMachine")
-                proc = &engine.getAudioGraph().getDrumMachine();
-            if (proc)
-                cmd = std::make_unique<calliope::NoteOnCommand>(*proc, midiNote, velocity);
-        } else if (command == "instrument.noteOff") {
-            juce::AudioProcessor* proc = nullptr;
-            if (instrument == "polysynth")
-                proc = &engine.getAudioGraph().getPolySynth();
-            else if (instrument == "basssynth")
-                proc = &engine.getAudioGraph().getBassSynth();
-            else if (instrument == "drumMachine")
-                proc = &engine.getAudioGraph().getDrumMachine();
-            if (proc)
-                cmd = std::make_unique<calliope::NoteOffCommand>(*proc, midiNote);
-        } else if (command == "drumMachine.loadSample") {
-            cmd = std::make_unique<calliope::LoadSampleCommand>(
-                engine.getAudioGraph().getDrumMachine(), padIndex, filePath);
-        // Phase 5 — Effect commands
-        } else if (command == "effect.insert") {
-            auto jtId = juce::String(trackId);
-            auto jtType = juce::String(effectType);
-            auto& chain = engine.getInsertChain(jtId);
-            cmd = std::make_unique<calliope::InsertEffectCommand>(chain, engine, jtId, jtType, effectPosition);
-        } else if (command == "effect.remove") {
-            auto jtId = juce::String(trackId);
-            auto& chain = engine.getInsertChain(jtId);
-            cmd = std::make_unique<calliope::RemoveEffectCommand>(chain, engine, jtId, effectPosition);
-        } else if (command == "effect.reorder") {
-            auto jtId = juce::String(trackId);
-            auto& chain = engine.getInsertChain(jtId);
-            cmd = std::make_unique<calliope::ReorderEffectCommand>(chain, engine, jtId, effectFromPosition, effectToPosition);
-        } else if (command == "effect.bypass") {
-            auto jtId = juce::String(trackId);
-            auto& chain = engine.getInsertChain(jtId);
-            cmd = std::make_unique<calliope::BypassEffectCommand>(chain, effectPosition, effectBypassed);
-        }
-
-        bool success = false;
-        if (cmd) {
-            success = engine.getCommandDispatcher().dispatch(std::move(cmd));
-        }
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    const bool success = cmd != nullptr && engine.getCommandDispatcher().dispatch(std::move(cmd));
+    return resolvedBool(env, success);
 }
 
-Napi::Value CommandUndo(const Napi::CallbackInfo& info) {
+Napi::Value CommandUndo(const Napi::CallbackInfo& info)
+{
+    if (!engineReady())
+        return resolvedBool(info.Env(), false);
+    return resolvedBool(info.Env(), Engine::getInstance().getCommandDispatcher().undo());
+}
+
+Napi::Value CommandRedo(const Napi::CallbackInfo& info)
+{
+    if (!engineReady())
+        return resolvedBool(info.Env(), false);
+    return resolvedBool(info.Env(), Engine::getInstance().getCommandDispatcher().redo());
+}
+
+Napi::Value GetProjectState(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "CommandUndo",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        bool success = calliope::Engine::getInstance().getCommandDispatcher().undo();
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    auto json = Engine::getInstance().getProjectState().toJson().toStdString();
+    return resolved(env, Napi::String::New(env, json));
 }
 
-Napi::Value CommandRedo(const Napi::CallbackInfo& info) {
+Napi::Value LoadProjectState(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Napi::TypeError::New(env, "Expected JSON string").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    if (!engineReady())
+        return resolvedBool(env, false);
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "CommandRedo",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        bool success = calliope::Engine::getInstance().getCommandDispatcher().redo();
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    calliope::ProjectState state;
+    if (!state.fromJson(toJuce(info[0].As<Napi::String>().Utf8Value())))
+        return resolvedBool(env, false);
+    return resolvedBool(env, Engine::getInstance().applyProjectState(state));
 }
 
-Napi::Value GetProjectState(const Napi::CallbackInfo& info) {
+Napi::Value GetParameterIds(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
+    auto ids = Engine::getInstance().getParameterRegistry().getAllParameterIds();
 
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetProjectState",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        auto state = calliope::Engine::getInstance().getProjectState();
-        auto jsonStr = state.toJson().toStdString();
-
-        tsfn.BlockingCall([deferred, jsonStr](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::String::New(env, jsonStr));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    auto result = Napi::Array::New(env, ids.size());
+    for (size_t i = 0; i < ids.size(); ++i)
+        result.Set(static_cast<uint32_t>(i), Napi::String::New(env, ids[i].toStdString()));
+    return resolved(env, result);
 }
 
-Napi::Value GetParameterIds(const Napi::CallbackInfo& info) {
+// Every parameter with its type, range and current value: what a UI needs to
+// draw a control, and what an agent needs to know what it may set.
+Napi::Value DescribeParameters(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
+    auto& registry = Engine::getInstance().getParameterRegistry();
+    auto ids = registry.getAllParameterIds();
 
-    auto deferred = Napi::Promise::Deferred::New(env);
+    auto result = Napi::Array::New(env);
+    uint32_t index = 0;
+    for (const auto& id : ids) {
+        const auto* def = registry.getParameter(id);
+        if (def == nullptr) continue;
 
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetParameterIds",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        auto ids = calliope::Engine::getInstance().getParameterRegistry().getAllParameterIds();
-
-        // Convert to std::vector<std::string> for thread-safe capture
-        std::vector<std::string> idStrs;
-        idStrs.reserve(ids.size());
-        for (const auto& id : ids) {
-            idStrs.push_back(id.toStdString());
-        }
-
-        tsfn.BlockingCall([deferred, idStrs](Napi::Env env, Napi::Function) {
-            auto arr = Napi::Array::New(env, idStrs.size());
-            for (size_t i = 0; i < idStrs.size(); i++) {
-                arr.Set(i, Napi::String::New(env, idStrs[i]));
-            }
-            deferred.Resolve(arr);
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+        auto obj = Napi::Object::New(env);
+        obj.Set("id", Napi::String::New(env, id.toStdString()));
+        obj.Set("type", Napi::String::New(env, def->type.toStdString()));
+        obj.Set("min", varToJs(env, def->minValue));
+        obj.Set("max", varToJs(env, def->maxValue));
+        obj.Set("value", varToJs(env, def->getter()));
+        result.Set(index++, obj);
+    }
+    return resolved(env, result);
 }
 
-Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info) {
+Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
 
     if (info.Length() < 1 || !info[0].IsFunction()) {
@@ -860,37 +705,32 @@ Napi::Value SubscribeToEvents(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
 
-    // Unsubscribe previous listener if any
+    auto& dispatcher = Engine::getInstance().getCommandDispatcher();
     if (eventSubscribed && bridgeListener) {
-        calliope::Engine::getInstance().getCommandDispatcher().removeListener(bridgeListener.get());
+        dispatcher.removeListener(bridgeListener.get());
         bridgeListener.reset();
         eventTsfn.Release();
         eventSubscribed = false;
     }
 
-    auto callback = info[0].As<Napi::Function>();
-
-    // Create a persistent TSFN with the user's callback
     eventTsfn = Napi::ThreadSafeFunction::New(
-        env,
-        callback,
-        "CommandEventSubscription",
-        0,  // unlimited queue
-        1   // initial thread count
-    );
+        env, info[0].As<Napi::Function>(), "CommandEventSubscription", 0, 1);
+    // Events must not keep the process alive on their own.
+    eventTsfn.Unref(env);
 
     bridgeListener = std::make_unique<BridgeListener>(eventTsfn);
-    calliope::Engine::getInstance().getCommandDispatcher().addListener(bridgeListener.get());
+    dispatcher.addListener(bridgeListener.get());
     eventSubscribed = true;
 
     return env.Undefined();
 }
 
-Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
+Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
 
     if (eventSubscribed && bridgeListener) {
-        calliope::Engine::getInstance().getCommandDispatcher().removeListener(bridgeListener.get());
+        Engine::getInstance().getCommandDispatcher().removeListener(bridgeListener.get());
         bridgeListener.reset();
         eventTsfn.Release();
         eventSubscribed = false;
@@ -900,532 +740,134 @@ Napi::Value UnsubscribeFromEvents(const Napi::CallbackInfo& info) {
 }
 
 // ============================================================================
-// Phase 8 — Metering
+// Export
 // ============================================================================
 
-Napi::Value GetMeterLevels(const Napi::CallbackInfo& info) {
+namespace {
+
+// Wraps an optional JS progress callback so a worker thread can report
+// progress, at most once per percent.
+struct ProgressReporter {
+    Napi::ThreadSafeFunction tsfn;
+    bool active = false;
+    std::shared_ptr<std::atomic<int>> lastPercent = std::make_shared<std::atomic<int>>(-1);
+
+    static ProgressReporter create(Napi::Env env, const Napi::Value& callback, const char* name)
+    {
+        ProgressReporter reporter;
+        if (callback.IsFunction()) {
+            reporter.tsfn = Napi::ThreadSafeFunction::New(env, callback.As<Napi::Function>(), name, 0, 1);
+            reporter.active = true;
+        }
+        return reporter;
+    }
+
+    calliope::ProgressCallback callback() const
+    {
+        if (!active) return nullptr;
+        auto tsfnCopy = tsfn;
+        auto last = lastPercent;
+        return [tsfnCopy, last](float fraction) {
+            const int percent = static_cast<int>(fraction * 100.0f);
+            if (last->exchange(percent) == percent) return;
+            tsfnCopy.NonBlockingCall([fraction](Napi::Env env, Napi::Function fn) {
+                fn.Call({Napi::Number::New(env, static_cast<double>(fraction))});
+            });
+        };
+    }
+
+    void release() { if (active) tsfn.Release(); }
+};
+
+} // namespace
+
+Napi::Value GetExportFormats(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "GetMeterLevels",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn]() {
-        auto levels = calliope::Engine::getInstance().getMeterLevels();
-
-        tsfn.BlockingCall([deferred, levels](Napi::Env env, Napi::Function) {
-            auto result = Napi::Object::New(env);
-            for (const auto& track : levels.tracks) {
-                auto trackObj = Napi::Object::New(env);
-                trackObj.Set("rmsLeft", Napi::Number::New(env, track.rmsLeft));
-                trackObj.Set("rmsRight", Napi::Number::New(env, track.rmsRight));
-                trackObj.Set("peakLeft", Napi::Number::New(env, track.peakLeft));
-                trackObj.Set("peakRight", Napi::Number::New(env, track.peakRight));
-                result.Set(track.trackId, trackObj);
-            }
-            auto masterObj = Napi::Object::New(env);
-            masterObj.Set("rmsLeft", Napi::Number::New(env, levels.master.rmsLeft));
-            masterObj.Set("rmsRight", Napi::Number::New(env, levels.master.rmsRight));
-            masterObj.Set("peakLeft", Napi::Number::New(env, levels.master.peakLeft));
-            masterObj.Set("peakRight", Napi::Number::New(env, levels.master.peakRight));
-            result.Set("master", masterObj);
-            deferred.Resolve(result);
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
+    auto result = Napi::Object::New(env);
+    result.Set("wav16", Napi::Boolean::New(env, true));
+    result.Set("wav24", Napi::Boolean::New(env, true));
+    result.Set("flac", Napi::Boolean::New(env, true));
+    result.Set("mp3", Napi::Boolean::New(env, calliope::AudioExporter::isFormatSupported(calliope::ExportFormat::MP3)));
+    return result;
 }
 
-// Phase 9 — Project save/load
-
-Napi::Value SaveProject(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected file path string").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string filePath = info[0].As<Napi::String>().Utf8Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "SaveProject",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, filePath]() {
-        auto state = calliope::Engine::getInstance().getProjectState();
-        bool success = calliope::ProjectSerializer::saveToFile(
-            juce::String(filePath), state);
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value LoadProject(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected file path string").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string filePath = info[0].As<Napi::String>().Utf8Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "LoadProject",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, filePath]() {
-        calliope::ProjectState state;
-        bool success = calliope::ProjectSerializer::loadFromFile(
-            juce::String(filePath), state);
-
-        if (success) {
-            // Apply loaded state to engine
-            auto& engine = calliope::Engine::getInstance();
-
-            // Restore transport settings
-            engine.setBpm(state.transport.bpm);
-            engine.setTimeSignature(state.transport.timeSigNumerator,
-                                    state.transport.timeSigDenominator);
-            engine.setLoopRegion(state.transport.loopStartBeat,
-                                 state.transport.loopEndBeat,
-                                 state.transport.looping);
-
-            // Restore metronome
-            engine.setMetronomeEnabled(state.metronome.enabled);
-            engine.setMetronomeVolume(state.metronome.volume);
-
-            // Restore master bus volume
-            engine.getAudioGraph().getMasterBus().masterVolume.store(state.masterBus.volume);
-
-            // Restore instrument parameters via parameter registry setter functions
-            auto& registry = engine.getParameterRegistry();
-
-            // Helper lambda to set a parameter via registry setter
-            auto setParam = [&registry](const juce::String& id, double value) {
-                const auto* def = registry.getParameter(id);
-                if (def) def->setter(juce::var(value));
-            };
-
-            // PolySynth params
-            setParam("polysynth.osc1Waveform", static_cast<double>(state.polySynth.osc1Waveform));
-            setParam("polysynth.osc2Waveform", static_cast<double>(state.polySynth.osc2Waveform));
-            setParam("polysynth.oscMix", static_cast<double>(state.polySynth.oscMix));
-            setParam("polysynth.osc2Detune", static_cast<double>(state.polySynth.osc2Detune));
-            setParam("polysynth.filterCutoff", static_cast<double>(state.polySynth.filterCutoff));
-            setParam("polysynth.filterResonance", static_cast<double>(state.polySynth.filterResonance));
-            setParam("polysynth.filterEnvAmount", static_cast<double>(state.polySynth.filterEnvAmount));
-            setParam("polysynth.ampAttack", static_cast<double>(state.polySynth.ampAttack));
-            setParam("polysynth.ampDecay", static_cast<double>(state.polySynth.ampDecay));
-            setParam("polysynth.ampSustain", static_cast<double>(state.polySynth.ampSustain));
-            setParam("polysynth.ampRelease", static_cast<double>(state.polySynth.ampRelease));
-            setParam("polysynth.filterAttack", static_cast<double>(state.polySynth.filterAttack));
-            setParam("polysynth.filterDecay", static_cast<double>(state.polySynth.filterDecay));
-            setParam("polysynth.filterSustain", static_cast<double>(state.polySynth.filterSustain));
-            setParam("polysynth.filterRelease", static_cast<double>(state.polySynth.filterRelease));
-            setParam("polysynth.lfoRate", static_cast<double>(state.polySynth.lfoRate));
-            setParam("polysynth.lfoDepth", static_cast<double>(state.polySynth.lfoDepth));
-            setParam("polysynth.lfoTarget", static_cast<double>(state.polySynth.lfoTarget));
-            setParam("polysynth.masterGain", static_cast<double>(state.polySynth.masterGain));
-
-            // BassSynth params
-            setParam("basssynth.oscWaveform", static_cast<double>(state.bassSynth.oscWaveform));
-            setParam("basssynth.subOscMix", static_cast<double>(state.bassSynth.subOscMix));
-            setParam("basssynth.subOscOctave", static_cast<double>(state.bassSynth.subOscOctave));
-            setParam("basssynth.filterCutoff", static_cast<double>(state.bassSynth.filterCutoff));
-            setParam("basssynth.filterResonance", static_cast<double>(state.bassSynth.filterResonance));
-            setParam("basssynth.filterEnvAmount", static_cast<double>(state.bassSynth.filterEnvAmount));
-            setParam("basssynth.ampAttack", static_cast<double>(state.bassSynth.ampAttack));
-            setParam("basssynth.ampDecay", static_cast<double>(state.bassSynth.ampDecay));
-            setParam("basssynth.ampSustain", static_cast<double>(state.bassSynth.ampSustain));
-            setParam("basssynth.ampRelease", static_cast<double>(state.bassSynth.ampRelease));
-            setParam("basssynth.filterAttack", static_cast<double>(state.bassSynth.filterAttack));
-            setParam("basssynth.filterDecay", static_cast<double>(state.bassSynth.filterDecay));
-            setParam("basssynth.filterSustain", static_cast<double>(state.bassSynth.filterSustain));
-            setParam("basssynth.filterRelease", static_cast<double>(state.bassSynth.filterRelease));
-            setParam("basssynth.masterGain", static_cast<double>(state.bassSynth.masterGain));
-
-            // DrumMachine volume
-            setParam("drumMachine.volume", static_cast<double>(state.drumMachine.volume));
-        }
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-// Phase 9 — Export
-
-Napi::Value ExportAudio(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 5) {
-        Napi::TypeError::New(env, "ExportAudio requires at least 5 arguments").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if (!info[0].IsString() || !info[1].IsString() || !info[2].IsNumber() ||
-        !info[3].IsNumber() || !info[4].IsString()) {
-        Napi::TypeError::New(env, "ExportAudio: invalid argument types").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string outputPath = info[0].As<Napi::String>().Utf8Value();
-    std::string formatStr = info[1].As<Napi::String>().Utf8Value();
-    int mp3Bitrate = info[2].As<Napi::Number>().Int32Value();
-    double totalBeats = info[3].As<Napi::Number>().DoubleValue();
-    std::string midiEventsJson = info[4].As<Napi::String>().Utf8Value();
-
-    // Parse format string to enum
-    calliope::ExportFormat format = calliope::ExportFormat::WAV_16;
-    if (formatStr == "wav24") format = calliope::ExportFormat::WAV_24;
-    else if (formatStr == "mp3") format = calliope::ExportFormat::MP3;
-    else if (formatStr == "flac") format = calliope::ExportFormat::FLAC;
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    // Create TSFN for resolving the promise on the main thread
-    auto resolveTsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "ExportAudioResolve",
-        0, 1
-    );
-
-    // Create TSFN for progress callback if provided
-    Napi::ThreadSafeFunction progressTsfn;
-    bool hasProgress = info.Length() >= 6 && info[5].IsFunction();
-    if (hasProgress) {
-        progressTsfn = Napi::ThreadSafeFunction::New(
-            env,
-            info[5].As<Napi::Function>(),
-            "ExportAudioProgress",
-            0, 1
-        );
-    }
-
-    std::thread([deferred, resolveTsfn, progressTsfn, hasProgress,
-                 outputPath, format, mp3Bitrate, totalBeats, midiEventsJson]() {
-        auto& engine = calliope::Engine::getInstance();
-        auto& exporter = engine.getAudioExporter();
-
-        // Parse MIDI events
-        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
-            juce::String(midiEventsJson));
-
-        calliope::ExportOptions options;
-        options.outputPath = outputPath;
-        options.format = format;
-        options.mp3Bitrate = mp3Bitrate;
-        options.totalBeats = totalBeats;
-        options.midiEvents = std::move(midiEvents);
-
-        // Progress lambda that calls back to JS via TSFN
-        calliope::ProgressCallback progressCb = nullptr;
-        if (hasProgress) {
-            progressCb = [progressTsfn](float pct) {
-                float* pctCopy = new float(pct);
-                progressTsfn.BlockingCall(pctCopy, [](Napi::Env env, Napi::Function fn, float* val) {
-                    fn.Call({Napi::Number::New(env, static_cast<double>(*val))});
-                    delete val;
-                });
-            };
-        }
-
-        bool success = exporter.exportMix(options, progressCb);
-
-        if (hasProgress) {
-            progressTsfn.Release();
-        }
-
-        resolveTsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        resolveTsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value ExportStems(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 3) {
-        Napi::TypeError::New(env, "ExportStems requires at least 3 arguments").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if (!info[0].IsString() || !info[1].IsNumber() || !info[2].IsString()) {
-        Napi::TypeError::New(env, "ExportStems: invalid argument types").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string outputDir = info[0].As<Napi::String>().Utf8Value();
-    double totalBeats = info[1].As<Napi::Number>().DoubleValue();
-    std::string midiEventsJson = info[2].As<Napi::String>().Utf8Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto resolveTsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "ExportStemsResolve",
-        0, 1
-    );
-
-    Napi::ThreadSafeFunction progressTsfn;
-    bool hasProgress = info.Length() >= 4 && info[3].IsFunction();
-    if (hasProgress) {
-        progressTsfn = Napi::ThreadSafeFunction::New(
-            env,
-            info[3].As<Napi::Function>(),
-            "ExportStemsProgress",
-            0, 1
-        );
-    }
-
-    std::thread([deferred, resolveTsfn, progressTsfn, hasProgress,
-                 outputDir, totalBeats, midiEventsJson]() {
-        auto& engine = calliope::Engine::getInstance();
-        auto& exporter = engine.getAudioExporter();
-
-        auto midiEvents = calliope::AudioExporter::parseMidiEventsJson(
-            juce::String(midiEventsJson));
-
-        calliope::StemExportOptions options;
-        options.outputDir = outputDir;
-        options.totalBeats = totalBeats;
-        options.midiEvents = std::move(midiEvents);
-
-        calliope::ProgressCallback progressCb = nullptr;
-        if (hasProgress) {
-            progressCb = [progressTsfn](float pct) {
-                float* pctCopy = new float(pct);
-                progressTsfn.BlockingCall(pctCopy, [](Napi::Env env, Napi::Function fn, float* val) {
-                    fn.Call({Napi::Number::New(env, static_cast<double>(*val))});
-                    delete val;
-                });
-            };
-        }
-
-        bool success = exporter.exportStems(options, progressCb);
-
-        if (hasProgress) {
-            progressTsfn.Release();
-        }
-
-        resolveTsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        resolveTsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-Napi::Value LoadProjectState(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected JSON string").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string jsonString = info[0].As<Napi::String>().Utf8Value();
-
-    auto deferred = Napi::Promise::Deferred::New(env);
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
-        "LoadProjectState",
-        0, 1
-    );
-
-    std::thread([deferred, tsfn, jsonString]() {
-        bool success = false;
-
-        auto parsed = juce::JSON::parse(juce::String(jsonString));
-        if (auto* obj = parsed.getDynamicObject()) {
-            auto& engine = calliope::Engine::getInstance();
-            auto& registry = engine.getParameterRegistry();
-
-            auto setParam = [&registry](const juce::String& id, double value) {
-                const auto* def = registry.getParameter(id);
-                if (def) def->setter(juce::var(value));
-            };
-
-            // Restore transport settings
-            if (obj->hasProperty("transport")) {
-                auto transport = obj->getProperty("transport");
-                if (auto* tObj = transport.getDynamicObject()) {
-                    if (tObj->hasProperty("bpm"))
-                        engine.setBpm(static_cast<double>(tObj->getProperty("bpm")));
-                    if (tObj->hasProperty("timeSigNumerator") && tObj->hasProperty("timeSigDenominator"))
-                        engine.setTimeSignature(
-                            static_cast<int>(tObj->getProperty("timeSigNumerator")),
-                            static_cast<int>(tObj->getProperty("timeSigDenominator")));
-                    if (tObj->hasProperty("loopStartBeat") && tObj->hasProperty("loopEndBeat"))
-                        engine.setLoopRegion(
-                            static_cast<double>(tObj->getProperty("loopStartBeat")),
-                            static_cast<double>(tObj->getProperty("loopEndBeat")),
-                            static_cast<bool>(tObj->getProperty("looping")));
-                }
-            }
-
-            // Restore metronome settings
-            if (obj->hasProperty("metronome")) {
-                auto metronome = obj->getProperty("metronome");
-                if (auto* mObj = metronome.getDynamicObject()) {
-                    if (mObj->hasProperty("enabled"))
-                        engine.setMetronomeEnabled(static_cast<bool>(mObj->getProperty("enabled")));
-                    if (mObj->hasProperty("volume"))
-                        engine.setMetronomeVolume(static_cast<double>(mObj->getProperty("volume")));
-                }
-            }
-
-            // Restore master bus volume
-            if (obj->hasProperty("masterBus")) {
-                auto masterBus = obj->getProperty("masterBus");
-                if (auto* mbObj = masterBus.getDynamicObject()) {
-                    if (mbObj->hasProperty("volume"))
-                        engine.getAudioGraph().getMasterBus().masterVolume.store(
-                            static_cast<float>(static_cast<double>(mbObj->getProperty("volume"))));
-                }
-            }
-
-            // Restore instrument parameters via registry
-            if (obj->hasProperty("parameters")) {
-                auto params = obj->getProperty("parameters");
-                if (auto* pObj = params.getDynamicObject()) {
-                    for (const auto& prop : pObj->getProperties()) {
-                        setParam(prop.name.toString(), static_cast<double>(prop.value));
-                    }
-                }
-            }
-
-            success = true;
-        }
-
-        tsfn.BlockingCall([deferred, success](Napi::Env env, Napi::Function) {
-            deferred.Resolve(Napi::Boolean::New(env, success));
-        });
-        tsfn.Release();
-    }).detach();
-
-    return deferred.Promise();
-}
-
-// Phase 10.1 — Clip scheduling bridge functions
-
-static calliope::MidiClipData parseClipObject(const Napi::Object& obj) {
-    calliope::MidiClipData clip;
-    clip.clipId = obj.Get("clipId").As<Napi::String>().Utf8Value();
-    clip.trackId = obj.Get("trackId").As<Napi::String>().Utf8Value();
-    clip.startBeat = obj.Get("startBeat").As<Napi::Number>().DoubleValue();
-    clip.lengthBeats = obj.Get("lengthBeats").As<Napi::Number>().DoubleValue();
-
-    if (obj.Has("notes") && obj.Get("notes").IsArray()) {
-        auto notesArr = obj.Get("notes").As<Napi::Array>();
-        for (uint32_t i = 0; i < notesArr.Length(); ++i) {
-            auto noteObj = notesArr.Get(i).As<Napi::Object>();
-            calliope::MidiNoteData note;
-            note.pitch = noteObj.Get("pitch").As<Napi::Number>().Int32Value();
-            note.startBeat = noteObj.Get("startBeat").As<Napi::Number>().DoubleValue();
-            note.lengthBeats = noteObj.Get("lengthBeats").As<Napi::Number>().DoubleValue();
-            note.velocity = noteObj.Get("velocity").As<Napi::Number>().FloatValue();
-            clip.notes.push_back(note);
-        }
-    }
-
-    return clip;
-}
-
-Napi::Value AddClip(const Napi::CallbackInfo& info) {
+// exportAudio({outputPath, format: 'wav16'|'wav24'|'flac'|'mp3', mp3Bitrate?, totalBeats?}, onProgress?)
+Napi::Value ExportAudio(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsObject()) {
-        Napi::TypeError::New(env, "Expected clip object").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Expected export options object").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-    auto clipData = parseClipObject(info[0].As<Napi::Object>());
-    auto deferred = Napi::Promise::Deferred::New(env);
-    auto tsfn = Napi::ThreadSafeFunction::New(env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}), "AddClip", 0, 1);
-    std::thread([deferred, tsfn, clipData]() {
-        calliope::Engine::getInstance().getClipScheduler().addClip(clipData);
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) { deferred.Resolve(Napi::Boolean::New(env, true)); });
-        tsfn.Release();
-    }).detach();
-    return deferred.Promise();
+    auto obj = info[0].As<Napi::Object>();
+
+    calliope::ExportOptions options;
+    options.outputPath = getString(obj, "outputPath");
+    options.mp3Bitrate = static_cast<int>(getNumber(obj, "mp3Bitrate", 192));
+    options.totalBeats = getNumber(obj, "totalBeats", 0.0);
+
+    const auto format = getString(obj, "format", "wav24");
+    if (format == "wav16")      options.format = calliope::ExportFormat::WAV_16;
+    else if (format == "wav24") options.format = calliope::ExportFormat::WAV_24;
+    else if (format == "flac")  options.format = calliope::ExportFormat::FLAC;
+    else if (format == "mp3")   options.format = calliope::ExportFormat::MP3;
+    else return resolvedBool(env, false);
+
+    if (!Engine::getInstance().isInitialised() || exportInProgress.exchange(true))
+        return resolvedBool(env, false);
+
+    auto reporter = ProgressReporter::create(env, info.Length() > 1 ? info[1] : env.Undefined(), "ExportAudioProgress");
+
+    return runAsync<bool>(
+        env, "ExportAudio",
+        [options, reporter]() mutable {
+            const bool ok = Engine::getInstance().getAudioExporter().exportMix(options, reporter.callback());
+            reporter.release();
+            exportInProgress.store(false);
+            return ok;
+        },
+        boolToJs);
 }
 
-Napi::Value RemoveClip(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected clipId as string").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-    std::string clipId = info[0].As<Napi::String>().Utf8Value();
-    auto deferred = Napi::Promise::Deferred::New(env);
-    auto tsfn = Napi::ThreadSafeFunction::New(env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}), "RemoveClip", 0, 1);
-    std::thread([deferred, tsfn, clipId]() {
-        calliope::Engine::getInstance().getClipScheduler().removeClip(clipId);
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) { deferred.Resolve(Napi::Boolean::New(env, true)); });
-        tsfn.Release();
-    }).detach();
-    return deferred.Promise();
-}
-
-Napi::Value UpdateClip(const Napi::CallbackInfo& info) {
+// exportStems({outputDir, totalBeats?, trackNames?: {[trackId]: string}}, onProgress?)
+Napi::Value ExportStems(const Napi::CallbackInfo& info)
+{
     Napi::Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsObject()) {
-        Napi::TypeError::New(env, "Expected clip object").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Expected stem export options object").ThrowAsJavaScriptException();
         return env.Undefined();
     }
-    auto clipData = parseClipObject(info[0].As<Napi::Object>());
-    auto deferred = Napi::Promise::Deferred::New(env);
-    auto tsfn = Napi::ThreadSafeFunction::New(env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}), "UpdateClip", 0, 1);
-    std::thread([deferred, tsfn, clipData]() {
-        calliope::Engine::getInstance().getClipScheduler().updateClip(clipData);
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) { deferred.Resolve(Napi::Boolean::New(env, true)); });
-        tsfn.Release();
-    }).detach();
-    return deferred.Promise();
-}
+    auto obj = info[0].As<Napi::Object>();
 
-Napi::Value ClearClips(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    auto deferred = Napi::Promise::Deferred::New(env);
-    auto tsfn = Napi::ThreadSafeFunction::New(env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}), "ClearClips", 0, 1);
-    std::thread([deferred, tsfn]() {
-        calliope::Engine::getInstance().getClipScheduler().clearClips();
-        tsfn.BlockingCall([deferred](Napi::Env env, Napi::Function) { deferred.Resolve(Napi::Boolean::New(env, true)); });
-        tsfn.Release();
-    }).detach();
-    return deferred.Promise();
+    calliope::StemExportOptions options;
+    options.outputDir = getString(obj, "outputDir");
+    options.totalBeats = getNumber(obj, "totalBeats", 0.0);
+
+    auto namesValue = obj.Get("trackNames");
+    if (namesValue.IsObject()) {
+        auto names = namesValue.As<Napi::Object>();
+        auto keys = names.GetPropertyNames();
+        for (uint32_t i = 0; i < keys.Length(); ++i) {
+            auto key = keys.Get(i);
+            auto value = names.Get(key);
+            if (key.IsString() && value.IsString())
+                options.trackNames[key.As<Napi::String>().Utf8Value()] = value.As<Napi::String>().Utf8Value();
+        }
+    }
+
+    if (!Engine::getInstance().isInitialised() || exportInProgress.exchange(true))
+        return resolvedBool(env, false);
+
+    auto reporter = ProgressReporter::create(env, info.Length() > 1 ? info[1] : env.Undefined(), "ExportStemsProgress");
+
+    return runAsync<bool>(
+        env, "ExportStems",
+        [options, reporter]() mutable {
+            const bool ok = Engine::getInstance().getAudioExporter().exportStems(options, reporter.callback());
+            reporter.release();
+            exportInProgress.store(false);
+            return ok;
+        },
+        boolToJs);
 }

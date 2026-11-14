@@ -45,7 +45,7 @@ juce::var NoteOffCommand::getEventData() const
 
 bool LoadSampleCommand::perform()
 {
-    juce::File file(filePath_);
+    juce::File file(juce::String::fromUTF8(filePath_.c_str()));
     return drumMachine_.loadSample(padIndex_, file);
 }
 
