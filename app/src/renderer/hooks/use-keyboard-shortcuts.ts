@@ -3,6 +3,7 @@ import { useTimelineStore } from '../stores/timeline-store'
 import { usePianoRollStore } from '../stores/piano-roll-store'
 import { useAppStore } from '../stores/app-store'
 import { useProjectStore } from '../stores/project-store'
+import { newProject, openProject, redo, saveProject, undo } from '../project/session'
 import { useMixerStore } from '../stores/mixer-store'
 import { deleteClip, duplicateClip } from '../utils/clip-operations'
 import {
@@ -44,8 +45,18 @@ export function routeShortcut(
   // Ctrl+Z => undo
   if (key === 'z' && ctrl && !shift) return 'global:undo'
 
+  // Ctrl+Shift+S => save as (check before Ctrl+S)
+  if (key === 's' && ctrl && shift) return 'global:save-as'
+
   // Ctrl+S => save
   if (key === 's' && ctrl && !shift) return 'global:save'
+
+  // Ctrl+O => open, Ctrl+N => new
+  if (key === 'o' && ctrl && !shift) return 'global:open'
+  if (key === 'n' && ctrl && !shift) return 'global:new'
+
+  // Ctrl+Y => redo (the Windows convention)
+  if (key === 'y' && ctrl && !shift) return 'global:redo'
 
   // Ctrl+Shift+E => export
   if (key === 'e' && ctrl && shift) return 'global:export'
@@ -106,7 +117,9 @@ export function useKeyboardShortcuts(): void {
       }
 
       const focusedPanel = useAppStore.getState().focusedPanel
-      const action = routeShortcut(e.key, modifiers, focusedPanel)
+      // With Shift held, e.key is the upper-case letter.
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+      const action = routeShortcut(key, modifiers, focusedPanel)
 
       if (action === null) return
 
@@ -128,17 +141,28 @@ export function useKeyboardShortcuts(): void {
         case 'global:record-toggle':
           // Record toggle (engine API pending)
           break
-        case 'global:loop-toggle':
-          // Loop toggle (engine API pending)
+        case 'global:loop-toggle': {
+          const store = useTimelineStore.getState()
+          if (store.loopRegion) store.setLoopEnabled(!store.loopEnabled)
           break
+        }
         case 'global:undo':
-          window.calliope?.commandUndo()
+          undo()
           break
         case 'global:redo':
-          window.calliope?.commandRedo()
+          redo()
           break
         case 'global:save':
-          useProjectStore.getState().save()
+          void saveProject()
+          break
+        case 'global:save-as':
+          void saveProject({ saveAs: true })
+          break
+        case 'global:open':
+          void openProject()
+          break
+        case 'global:new':
+          void newProject()
           break
         case 'global:export':
           useProjectStore.getState().showExportDialog()

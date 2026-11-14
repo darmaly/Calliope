@@ -1,153 +1,80 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { IpcRendererEvent } from 'electron'
+import type { CalliopeAPI, MenuAction, Unsubscribe } from '../shared/api'
 
-contextBridge.exposeInMainWorld('calliope', {
-  // Phase 1
+/** Subscribe to a channel and return a function that removes exactly this listener. */
+function listen<T>(channel: string, callback: (payload: T) => void): Unsubscribe {
+  const handler = (_event: IpcRendererEvent, payload: T) => callback(payload)
+  ipcRenderer.on(channel, handler)
+  return () => {
+    ipcRenderer.removeListener(channel, handler)
+  }
+}
+
+const api: CalliopeAPI = {
+  // Engine information
   getEngineInfo: () => ipcRenderer.invoke('engine:getInfo'),
-  startTestTone: (frequency: number) => ipcRenderer.invoke('engine:startTestTone', frequency),
+  startTestTone: (frequency) => ipcRenderer.invoke('engine:startTestTone', frequency),
   stopTestTone: () => ipcRenderer.invoke('engine:stopTestTone'),
 
-  // Phase 2 — Engine lifecycle
-  initialiseEngine: (sampleRate: number, bufferSize: number) =>
+  // Lifecycle
+  initialiseEngine: (sampleRate, bufferSize) =>
     ipcRenderer.invoke('engine:initialise', sampleRate, bufferSize),
   shutdownEngine: () => ipcRenderer.invoke('engine:shutdown'),
+  setBufferSize: (bufferSize) => ipcRenderer.invoke('engine:config:setBufferSize', bufferSize),
 
-  // Phase 2 — Transport
+  // Transport
   transportPlay: () => ipcRenderer.invoke('engine:transport:play'),
   transportStop: () => ipcRenderer.invoke('engine:transport:stop'),
   transportPause: () => ipcRenderer.invoke('engine:transport:pause'),
-  setBpm: (bpm: number) => ipcRenderer.invoke('engine:transport:setBpm', bpm),
-  setTimeSignature: (num: number, den: number) =>
-    ipcRenderer.invoke('engine:transport:setTimeSignature', num, den),
-  setLoopRegion: (startBeat: number, endBeat: number, enabled: boolean) =>
+  setBpm: (bpm) => ipcRenderer.invoke('engine:transport:setBpm', bpm),
+  setTimeSignature: (numerator, denominator) =>
+    ipcRenderer.invoke('engine:transport:setTimeSignature', numerator, denominator),
+  setLoopRegion: (startBeat, endBeat, enabled) =>
     ipcRenderer.invoke('engine:transport:setLoop', startBeat, endBeat, enabled),
+  setMetronomeEnabled: (enabled) => ipcRenderer.invoke('engine:metronome:setEnabled', enabled),
+  setMetronomeVolume: (volume) => ipcRenderer.invoke('engine:metronome:setVolume', volume),
 
-  // Phase 2 — Config
-  setBufferSize: (bufferSize: number) =>
-    ipcRenderer.invoke('engine:config:setBufferSize', bufferSize),
-
-  // Phase 2 — Metronome
-  setMetronomeEnabled: (enabled: boolean) =>
-    ipcRenderer.invoke('engine:metronome:setEnabled', enabled),
-  setMetronomeVolume: (volume: number) =>
-    ipcRenderer.invoke('engine:metronome:setVolume', volume),
-
-  // Phase 2 — State queries
+  // State queries
   getTransportState: () => ipcRenderer.invoke('engine:transport:getState'),
   getAudioConfig: () => ipcRenderer.invoke('engine:config:getAudioConfig'),
+  getMeterLevels: () => ipcRenderer.invoke('engine:meter:getLevels'),
 
-  // Phase 3 — Command dispatch
-  dispatchCommand: (cmd: { command: string; params: Record<string, unknown> }) =>
-    ipcRenderer.invoke('command:dispatch', cmd),
-  commandUndo: () => ipcRenderer.invoke('command:undo'),
-  commandRedo: () => ipcRenderer.invoke('command:redo'),
-  getProjectState: () => ipcRenderer.invoke('command:getState'),
-  getParameterIds: () => ipcRenderer.invoke('command:getParameterIds'),
-  // Phase 4 — Instrument convenience API
-  instrumentNoteOn: (instrument: string, note: number, velocity: number) =>
+  // Tracks and clips
+  addTrack: (track) => ipcRenderer.invoke('engine:track:add', track),
+  removeTrack: (trackId) => ipcRenderer.invoke('engine:track:remove', trackId),
+  resetProject: () => ipcRenderer.invoke('engine:project:reset'),
+  clipUpdate: (clip) => ipcRenderer.invoke('engine:clip:update', clip),
+  clipRemove: (clipId) => ipcRenderer.invoke('engine:clip:remove', clipId),
+
+  // Commands and parameters
+  dispatchCommand: (cmd) => ipcRenderer.invoke('command:dispatch', cmd),
+  describeParameters: () => ipcRenderer.invoke('command:describeParameters'),
+  previewNoteOn: (trackId, note, velocity) =>
     ipcRenderer.invoke('command:dispatch', {
       command: 'instrument.noteOn',
-      params: { instrument, note, velocity }
+      params: { trackId, note, velocity },
     }),
-  instrumentNoteOff: (instrument: string, note: number) =>
+  previewNoteOff: (trackId, note) =>
     ipcRenderer.invoke('command:dispatch', {
       command: 'instrument.noteOff',
-      params: { instrument, note }
-    }),
-  drumMachineLoadSample: (padIndex: number, filePath: string) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'drumMachine.loadSample',
-      params: { padIndex, filePath }
+      params: { trackId, note },
     }),
 
-  // Phase 5 — Effect convenience API
-  effectInsert: (trackId: string, effectType: string, position?: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'effect.insert',
-      params: { trackId, effectType, position: position ?? -1 }
-    }),
-  effectRemove: (trackId: string, position: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'effect.remove',
-      params: { trackId, position }
-    }),
-  effectReorder: (trackId: string, fromPosition: number, toPosition: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'effect.reorder',
-      params: { trackId, fromPosition, toPosition }
-    }),
-  effectBypass: (trackId: string, position: number, bypassed: boolean) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'effect.bypass',
-      params: { trackId, position, bypassed }
-    }),
+  // Project files
+  projectSave: (request) => ipcRenderer.invoke('project:save', request),
+  projectOpen: () => ipcRenderer.invoke('project:open'),
+  projectSetDirty: (dirty) => ipcRenderer.send('project:setDirty', dirty),
 
-  // Phase 10.1 — Clip operations
-  clipAdd: (clip: {
-    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
-    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
-  }) => ipcRenderer.invoke('engine:clip:add', clip),
-  clipRemove: (clipId: string) => ipcRenderer.invoke('engine:clip:remove', clipId),
-  clipUpdate: (clip: {
-    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
-    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
-  }) => ipcRenderer.invoke('engine:clip:update', clip),
-  clipClear: () => ipcRenderer.invoke('engine:clip:clear'),
+  // Export
+  getExportFormats: () => ipcRenderer.invoke('export:getFormats'),
+  showExportPathDialog: (format) => ipcRenderer.invoke('export:browsePath', format),
+  exportAudio: (params) => ipcRenderer.invoke('export:audio', params),
+  exportStems: (params) => ipcRenderer.invoke('export:stems', params),
+  onExportProgress: (callback) => listen<number>('export:progress', callback),
 
-  onCommandEvent: (
-    callback: (event: { type: string; command: string; data: string }) => void
-  ) => ipcRenderer.on('command:event', (_event, data) => callback(data)),
-  removeCommandEventListener: () => ipcRenderer.removeAllListeners('command:event'),
+  // Application menu
+  onMenuAction: (callback) => listen<MenuAction>('menu:action', callback),
+}
 
-  // Phase 8 — Mixer
-  getMeterLevels: () => ipcRenderer.invoke('engine:meter:getLevels'),
-  setTrackVolume: (trackId: string, volume: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'parameter.set',
-      params: { id: `track.${trackId}.volume`, value: volume }
-    }),
-  setTrackPan: (trackId: string, pan: number) =>
-    ipcRenderer.invoke('command:dispatch', {
-      command: 'parameter.set',
-      params: { id: `track.${trackId}.pan`, value: pan }
-    }),
-
-  // Phase 9 — Project save/load
-  projectSave: (filePath?: string) => ipcRenderer.invoke('project:save', filePath),
-  projectSaveAs: () => ipcRenderer.invoke('project:saveAs'),
-  projectLoad: () => ipcRenderer.invoke('project:load'),
-  projectNew: () => ipcRenderer.invoke('project:new'),
-  projectGetInfo: () => ipcRenderer.invoke('project:getInfo'),
-  projectSetAutosave: (enabled: boolean, intervalMs?: number) =>
-    ipcRenderer.invoke('project:setAutosave', enabled, intervalMs),
-  projectGetAutosaveConfig: () => ipcRenderer.invoke('project:getAutosaveConfig'),
-  projectMarkDirty: () => ipcRenderer.invoke('project:markDirty'),
-  onProjectAutosaved: (
-    callback: (data: { filePath: string; timestamp: string }) => void
-  ) => ipcRenderer.on('project:autosaved', (_event, data) => callback(data)),
-  removeProjectAutosavedListener: () => ipcRenderer.removeAllListeners('project:autosaved'),
-
-  // Phase 9 — Export
-  exportAudio: (params: {
-    outputPath: string
-    format: string
-    mp3Bitrate: number
-    totalBeats: number
-    midiEventsJson: string
-  }) => ipcRenderer.invoke('project:export', params),
-  exportStems: (params: {
-    outputDir: string
-    totalBeats: number
-    midiEventsJson: string
-  }) => ipcRenderer.invoke('project:exportStems', params),
-  loadProjectState: (json: string) => ipcRenderer.invoke('project:loadState', json),
-  onExportProgress: (callback: (percent: number) => void) =>
-    ipcRenderer.on('project:exportProgress', (_event, percent) => callback(percent)),
-  removeExportProgressListener: () =>
-    ipcRenderer.removeAllListeners('project:exportProgress'),
-  showExportPathDialog: (format: string) =>
-    ipcRenderer.invoke('project:browseExportPath', format),
-  onShowExportDialog: (callback: () => void) =>
-    ipcRenderer.on('menu:export', () => callback()),
-  removeShowExportDialogListener: () =>
-    ipcRenderer.removeAllListeners('menu:export'),
-})
+contextBridge.exposeInMainWorld('calliope', api)

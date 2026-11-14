@@ -1,106 +1,76 @@
 import { createRequire } from 'module'
 import { app } from 'electron'
 import path from 'path'
+import type {
+  AudioConfig,
+  EngineClipPayload,
+  EngineCommand,
+  ExportAudioParams,
+  ExportFormatSupport,
+  ExportStemsParams,
+  MeterLevels,
+  ParameterDescription,
+  TransportState,
+} from '../shared/api'
 
 const require = createRequire(import.meta.url)
 
-interface TransportState {
-  state: 'stopped' | 'playing' | 'paused'
-  bpm: number
-  timeSigNumerator: number
-  timeSigDenominator: number
-  samplePosition: number
-  ppqPosition: number
-  looping: boolean
-  loopStartBeat: number
-  loopEndBeat: number
-}
-
-interface AudioConfig {
-  sampleRate: number
-  bufferSize: number
-  initialised: boolean
-}
-
-interface NativeAddon {
-  // Phase 1
+/**
+ * The C++ addon (native/src/bridge.cpp). Every method returns a Promise, but
+ * all except device open/close and export do their work synchronously inside
+ * the call, so calls take effect in the order they are made.
+ */
+export interface NativeAddon {
   getEngineInfo(): Promise<{ juceVersion: string; audioDevices: string[] }>
   startTestTone(frequency: number): Promise<boolean>
   stopTestTone(): Promise<void>
 
-  // Phase 2 — Engine lifecycle
   initialiseEngine(sampleRate: number, bufferSize: number): Promise<boolean>
   shutdownEngine(): Promise<void>
+  setBufferSize(bufferSize: number): Promise<boolean>
 
-  // Phase 2 — Transport
   transportPlay(): Promise<void>
   transportStop(): Promise<void>
   transportPause(): Promise<void>
   setBpm(bpm: number): Promise<void>
   setTimeSignature(numerator: number, denominator: number): Promise<void>
   setLoopRegion(startBeat: number, endBeat: number, enabled: boolean): Promise<void>
-
-  // Phase 2 — Config
-  setBufferSize(bufferSize: number): Promise<boolean>
-
-  // Phase 2 — Metronome
   setMetronomeEnabled(enabled: boolean): Promise<void>
   setMetronomeVolume(volume: number): Promise<void>
 
-  // Phase 2 — State queries
   getTransportState(): Promise<TransportState>
   getAudioConfig(): Promise<AudioConfig>
+  getMeterLevels(): Promise<MeterLevels>
 
-  // Phase 3 — Command dispatch
-  // Phase 4 — Instrument command types (dispatched via dispatchCommand):
-  // { command: 'instrument.noteOn', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number, velocity: number } }
-  // { command: 'instrument.noteOff', params: { instrument: 'polysynth'|'basssynth'|'drumMachine', note: number } }
-  // { command: 'drumMachine.loadSample', params: { padIndex: number, filePath: string } }
-  // Phase 5 — Effect command types (dispatched via dispatchCommand):
-  // { command: 'effect.insert', params: { trackId: string, effectType: 'eq'|'compressor'|'reverb'|'delay'|'limiter', position?: number } }
-  // { command: 'effect.remove', params: { trackId: string, position: number } }
-  // { command: 'effect.reorder', params: { trackId: string, fromPosition: number, toPosition: number } }
-  // { command: 'effect.bypass', params: { trackId: string, position: number, bypassed: boolean } }
-  dispatchCommand(cmd: { command: string; params: Record<string, unknown> }): Promise<boolean>
+  addTrack(track: { trackId: string; instrument: string }): Promise<boolean>
+  removeTrack(trackId: string): Promise<boolean>
+  resetProject(): Promise<boolean>
+
+  addClip(clip: EngineClipPayload): Promise<boolean>
+  updateClip(clip: EngineClipPayload): Promise<boolean>
+  removeClip(clipId: string): Promise<boolean>
+  clearClips(): Promise<boolean>
+
+  dispatchCommand(cmd: EngineCommand): Promise<boolean>
   commandUndo(): Promise<boolean>
   commandRedo(): Promise<boolean>
   getProjectState(): Promise<string>
+  loadProjectState(json: string): Promise<boolean>
   getParameterIds(): Promise<string[]>
-  subscribeToEvents(
-    callback: (event: { type: string; command: string; data: string }) => void
-  ): void
+  describeParameters(): Promise<ParameterDescription[]>
+  subscribeToEvents(callback: (event: { type: string; command: string; data: string }) => void): void
   unsubscribeFromEvents(): void
 
-  // Phase 8 — Metering
-  getMeterLevels(): Promise<Record<string, { rmsLeft: number; rmsRight: number; peakLeft: number; peakRight: number }>>
-
-  // Phase 9 — Project save/load
-  saveProject(filePath: string): Promise<boolean>
-  loadProject(filePath: string): Promise<boolean>
-
-  // Phase 9 — Export
-  exportAudio(outputPath: string, format: string, mp3Bitrate: number, totalBeats: number, midiEventsJson: string): Promise<boolean>
-  exportStems(outputDir: string, totalBeats: number, midiEventsJson: string): Promise<boolean>
-  loadProjectState(json: string): Promise<boolean>
-
-  // Phase 10.1 — Clip operations
-  addClip(clip: {
-    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
-    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
-  }): Promise<boolean>
-  removeClip(clipId: string): Promise<boolean>
-  updateClip(clip: {
-    clipId: string; trackId: string; startBeat: number; lengthBeats: number;
-    notes: Array<{ pitch: number; startBeat: number; lengthBeats: number; velocity: number }>
-  }): Promise<boolean>
-  clearClips(): Promise<boolean>
+  getExportFormats(): ExportFormatSupport
+  exportAudio(params: ExportAudioParams, onProgress?: (fraction: number) => void): Promise<boolean>
+  exportStems(params: ExportStemsParams, onProgress?: (fraction: number) => void): Promise<boolean>
 }
 
 function loadAddon(): NativeAddon {
   // In dev: addon is at project_root/build/Release/calliope_addon.node
   // In production: addon is unpacked from asar
   const addonPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'build', 'Release', 'calliope_addon.node')
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'Release', 'calliope_addon.node')
     : path.join(__dirname, '..', '..', '..', 'build', 'Release', 'calliope_addon.node')
   return require(addonPath) as NativeAddon
 }

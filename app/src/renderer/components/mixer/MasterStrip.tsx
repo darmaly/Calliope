@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useMixerStore } from '../../stores/mixer-store'
 import { Fader } from './Fader'
 import { LevelMeter } from './LevelMeter'
@@ -11,22 +11,18 @@ export function MasterStrip() {
   const masterEffects = useMixerStore((s) => s.masterEffects)
 
   const [popover, setPopover] = useState<{ index: number; x: number; y: number } | null>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
 
   const handleVolumeChange = useCallback((gain: number) => {
     useMixerStore.getState().setMasterVolume(gain)
-    window.calliope
-      .dispatchCommand({ command: 'master.setVolume', params: { volume: gain } })
-      .catch(() => {})
   }, [])
 
   const handleAddEffect = useCallback((effectType: string) => {
     useMixerStore.getState().addMasterEffect(effectType)
-    window.calliope.effectInsert('master', effectType).catch(() => {})
   }, [])
 
   const handleRemoveEffect = useCallback((index: number) => {
     useMixerStore.getState().removeMasterEffect(index)
-    window.calliope.effectRemove('master', index).catch(() => {})
   }, [])
 
   const handleBypassEffect = useCallback((index: number) => {
@@ -34,7 +30,6 @@ export function MasterStrip() {
     const slot = effects[index]
     if (!slot) return
     useMixerStore.getState().bypassMasterEffect(index, !slot.bypassed)
-    window.calliope.effectBypass('master', index, !slot.bypassed).catch(() => {})
   }, [])
 
   const handleSlotClick = useCallback(
@@ -42,20 +37,20 @@ export function MasterStrip() {
       const effects = useMixerStore.getState().masterEffects
       const slot = effects[index]
       if (!slot) return
-      setPopover((prev) =>
-        prev?.index === index ? null : { index, x: 80, y: 200 },
-      )
+      const rect = stripRef.current?.getBoundingClientRect()
+      const at = rect ? { x: rect.left - 272, y: rect.top } : { x: 80, y: 200 }
+      setPopover((prev) => (prev?.index === index ? null : { index, ...at }))
     },
     [],
   )
 
   const handleReorderEffect = useCallback((fromIndex: number, toIndex: number) => {
     useMixerStore.getState().reorderMasterEffect(fromIndex, toIndex)
-    try { window.calliope.effectReorder('master', fromIndex, toIndex) } catch {}
   }, [])
 
   return (
     <div
+      ref={stripRef}
       style={{
         width: 88,
         minWidth: 88,

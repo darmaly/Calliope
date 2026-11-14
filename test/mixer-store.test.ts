@@ -117,7 +117,7 @@ describe('mixer store', () => {
     it('adds an effect to a track', () => {
       useMixerStore.getState().addTrackEffect('t1', 'eq')
       expect(useMixerStore.getState().getTrackEffects('t1')).toEqual([
-        { effectType: 'eq', bypassed: false },
+        { id: expect.any(String), effectType: 'eq', bypassed: false, params: {} },
       ])
     })
 
@@ -165,7 +165,7 @@ describe('mixer store', () => {
     it('adds a master effect', () => {
       useMixerStore.getState().addMasterEffect('limiter')
       expect(useMixerStore.getState().masterEffects).toEqual([
-        { effectType: 'limiter', bypassed: false },
+        { id: expect.any(String), effectType: 'limiter', bypassed: false, params: {} },
       ])
     })
 

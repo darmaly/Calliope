@@ -5,6 +5,8 @@ import { TRACK_COLORS } from '../../utils/colors'
 import { useContextMenu } from '../../hooks/use-context-menu'
 import { ContextMenu } from '../shared/ContextMenu'
 import type { Track } from '../../types/timeline'
+import { INSTRUMENTS } from '../../../shared/catalog'
+import { ParamPanel } from '../shared/ParamPanel'
 
 interface TrackHeaderProps {
   track: Track
@@ -22,6 +24,8 @@ export function TrackHeader({ track }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(track.name)
   const [showColorPicker, setShowColorPicker] = useState(false)
+  const [soundPanel, setSoundPanel] = useState<{ x: number; y: number } | null>(null)
+  const instrument = INSTRUMENTS[track.instrument]
   const inputRef = useRef<HTMLInputElement>(null)
   const contextMenu = useContextMenu()
 
@@ -45,12 +49,8 @@ export function TrackHeader({ track }: TrackHeaderProps) {
   const handleContextMenu = (e: React.MouseEvent) => {
     contextMenu.show(e, [
       {
-        label: 'Add Track Above',
-        action: () => addTrack(),
-      },
-      {
-        label: 'Add Track Below',
-        action: () => addTrack(),
+        label: `${instrument.label} Settings`,
+        action: () => setSoundPanel({ x: e.clientX, y: e.clientY }),
       },
       {
         label: 'Rename Track',
@@ -65,7 +65,7 @@ export function TrackHeader({ track }: TrackHeaderProps) {
       },
       {
         label: 'Duplicate Track',
-        action: () => addTrack(track.name + ' Copy', track.colorIndex),
+        action: () => addTrack(track.name + ' Copy', track.colorIndex, track.instrument),
       },
       {
         label: 'Delete Track',
@@ -116,6 +116,18 @@ export function TrackHeader({ track }: TrackHeaderProps) {
 
         {/* Buttons row */}
         <div className="flex items-center gap-1">
+          {/* Instrument: click to open its settings */}
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              setSoundPanel((open) => (open ? null : { x: rect.right + 8, y: rect.top }))
+            }}
+            className="h-6 px-1.5 mr-1 rounded text-[10px] bg-[#3a3a5a] text-[#cccccc] hover:text-[#eeeeee] truncate max-w-[84px]"
+            title={`${instrument.label} settings`}
+          >
+            {instrument.label}
+          </button>
+
           {/* Mute */}
           <button
             onClick={() => toggleMute(track.id)}
@@ -160,6 +172,18 @@ export function TrackHeader({ track }: TrackHeaderProps) {
           items={contextMenu.items}
           position={contextMenu.position}
           onClose={contextMenu.close}
+        />
+      )}
+
+      {/* Instrument settings */}
+      {soundPanel && (
+        <ParamPanel
+          title={`${track.name} - ${instrument.label}`}
+          specs={instrument.params}
+          values={track.params}
+          onChange={(name, value) => useTimelineStore.getState().setTrackParam(track.id, name, value)}
+          position={soundPanel}
+          onClose={() => setSoundPanel(null)}
         />
       )}
 

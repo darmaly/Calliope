@@ -8,7 +8,6 @@ import { Playhead } from './Playhead'
 import { TrackHeaderList } from '../tracks/TrackHeaderList'
 import { AddTrackButton } from '../tracks/AddTrackButton'
 import { usePlayhead } from '../../hooks/use-playhead'
-import { useEngineSync } from '../../hooks/use-engine-sync'
 import { useKeyboardShortcuts } from '../../hooks/use-keyboard-shortcuts'
 
 export function TimelineView() {
@@ -17,9 +16,6 @@ export function TimelineView() {
 
   // Start rAF sync with engine transport
   usePlayhead()
-
-  // Sync engine events to store
-  useEngineSync()
 
   // Register global keyboard shortcuts
   useKeyboardShortcuts()

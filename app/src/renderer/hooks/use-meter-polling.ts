@@ -1,30 +1,36 @@
 import { useEffect } from 'react'
 import { useMixerStore } from '../stores/mixer-store'
 
+/** Polls level meters from the engine while the mixer is visible. */
 export function useMeterPolling() {
   const mixerVisible = useMixerStore((s) => s.mixerVisible)
 
   useEffect(() => {
     if (!mixerVisible) return
-    let rafId: number
+    let cancelled = false
+    let raf = 0
+
     const poll = async () => {
       try {
         const levels = await window.calliope.getMeterLevels()
+        if (cancelled) return
         const store = useMixerStore.getState()
-        // Update per-track levels
-        for (const [trackId, data] of Object.entries(levels) as [string, { peakLeft: number; peakRight: number }][]) {
-          if (trackId === 'master') {
-            store.setMasterLevel({ peakL: data.peakLeft, peakR: data.peakRight })
-          } else {
-            store.setTrackLevel(trackId, { peakL: data.peakLeft, peakR: data.peakRight })
-          }
+        for (const [trackId, data] of Object.entries(levels)) {
+          const level = { peakL: data.peakLeft, peakR: data.peakRight }
+          if (trackId === 'master') store.setMasterLevel(level)
+          else store.setTrackLevel(trackId, level)
         }
       } catch {
         /* engine not ready */
       }
-      rafId = requestAnimationFrame(poll)
+      // Ask again only once the previous answer is in.
+      if (!cancelled) raf = requestAnimationFrame(poll)
     }
-    rafId = requestAnimationFrame(poll)
-    return () => cancelAnimationFrame(rafId)
+
+    raf = requestAnimationFrame(poll)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
   }, [mixerVisible])
 }

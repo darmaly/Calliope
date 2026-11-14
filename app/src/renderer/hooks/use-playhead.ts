@@ -1,54 +1,48 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useTimelineStore } from '../stores/timeline-store'
 
 /**
- * Polls the C++ engine transport state via requestAnimationFrame
- * and mirrors position/BPM/time-signature into the Zustand store.
- * Throttled to ~30 Hz (every 2nd frame) to reduce IPC overhead.
+ * Mirrors the engine's playback position into the timeline store, about 30
+ * times a second. Tempo, time signature and loop settings are not read back:
+ * they belong to the project document and flow the other way.
  */
 export function usePlayhead() {
-  const frameRef = useRef(0)
-  const rafRef = useRef<number | null>(null)
-  const setTransportState = useTimelineStore((s) => s.setTransportState)
-
   useEffect(() => {
     let cancelled = false
+    let frame = 0
+    let raf = 0
+    let waiting = false
 
     const poll = () => {
       if (cancelled) return
+      frame++
 
-      frameRef.current++
-
-      // Throttle: only query engine every 2nd frame (~30 Hz at 60fps)
-      if (frameRef.current % 2 === 0 && window.calliope?.getTransportState) {
-        window.calliope.getTransportState()
+      // Every 2nd frame, and never more than one request in flight.
+      if (frame % 2 === 0 && !waiting && window.calliope?.getTransportState) {
+        waiting = true
+        window.calliope
+          .getTransportState()
           .then((state) => {
             if (cancelled) return
-            setTransportState({
-              isPlaying: state.state === 'playing',
-              currentBeat: state.ppqPosition,
-              bpm: state.bpm,
-              timeSignature: {
-                numerator: state.timeSigNumerator,
-                denominator: state.timeSigDenominator,
-              },
-            })
+            useTimelineStore
+              .getState()
+              .setPlaybackPosition(state.state === 'playing', state.ppqPosition)
           })
           .catch(() => {
-            // Engine not available — graceful fallback for dev without native engine
+            // Engine not available (e.g. renderer running without the addon)
+          })
+          .finally(() => {
+            waiting = false
           })
       }
 
-      rafRef.current = requestAnimationFrame(poll)
+      raf = requestAnimationFrame(poll)
     }
 
-    rafRef.current = requestAnimationFrame(poll)
-
+    raf = requestAnimationFrame(poll)
     return () => {
       cancelled = true
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-      }
+      cancelAnimationFrame(raf)
     }
-  }, [setTransportState])
+  }, [])
 }

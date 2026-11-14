@@ -1,8 +1,17 @@
 import { create } from 'zustand'
-import type { MixerState, MixerActions, LevelData, EffectSlotInfo } from '../types/mixer'
+import type { MixerState, MixerActions, LevelData, EffectSlotInfo, ChainId } from '../types/mixer'
+import { MASTER_CHAIN } from '../types/mixer'
+import { EFFECTS, clampParam, findParam, isEffectType } from '../../shared/catalog'
 import { clampVolume, clampPan } from '../utils/mixer-helpers'
 
 const DEFAULT_LEVEL: LevelData = { peakL: 0, peakR: 0 }
+
+const newSlot = (effectType: string): EffectSlotInfo => ({
+  id: crypto.randomUUID(),
+  effectType,
+  bypassed: false,
+  params: {},
+})
 
 export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
   // Default state
@@ -63,7 +72,7 @@ export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
       return {
         trackEffects: {
           ...state.trackEffects,
-          [trackId]: [...current, { effectType, bypassed: false }],
+          [trackId]: [...current, newSlot(effectType)],
         },
       }
     }),
@@ -109,7 +118,7 @@ export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
   // Master effects
   addMasterEffect: (effectType: string) =>
     set((state) => ({
-      masterEffects: [...state.masterEffects, { effectType, bypassed: false }],
+      masterEffects: [...state.masterEffects, newSlot(effectType)],
     })),
 
   removeMasterEffect: (index: number) =>
@@ -140,6 +149,29 @@ export const useMixerStore = create<MixerState & MixerActions>((set, get) => ({
         i === index ? { ...slot, bypassed } : slot,
       )
       return { masterEffects: updated }
+    }),
+
+  // Effect settings
+  getChain: (chainId: ChainId): EffectSlotInfo[] =>
+    chainId === MASTER_CHAIN ? get().masterEffects : (get().trackEffects[chainId] ?? []),
+
+  setEffectParam: (chainId: ChainId, index: number, name: string, value: number) =>
+    set((state) => {
+      const chain =
+        chainId === MASTER_CHAIN ? state.masterEffects : (state.trackEffects[chainId] ?? [])
+      const slot = chain[index]
+      if (!slot || !isEffectType(slot.effectType)) return state
+      const spec = findParam(EFFECTS[slot.effectType].params, name)
+      if (!spec) return state
+      const clamped = clampParam(spec, value)
+      if (slot.params[name] === clamped) return state
+
+      const updated = chain.map((s, i) =>
+        i === index ? { ...s, params: { ...s.params, [name]: clamped } } : s,
+      )
+      return chainId === MASTER_CHAIN
+        ? { masterEffects: updated }
+        : { trackEffects: { ...state.trackEffects, [chainId]: updated } }
     }),
 
   // Panel height

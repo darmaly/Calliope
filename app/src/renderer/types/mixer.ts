@@ -1,7 +1,15 @@
 export interface EffectSlotInfo {
+  /** Stable identity, so a slot can be followed when the chain is reordered. */
+  id: string
   effectType: string
   bypassed: boolean
+  /** Settings that differ from the effect's defaults, by parameter name. Booleans are 0 or 1. */
+  params: Record<string, number>
 }
+
+/** The chain an effect lives on: a track ID, or 'master'. */
+export type ChainId = string
+export const MASTER_CHAIN: ChainId = 'master'
 
 export const EFFECT_TYPES = [
   { type: 'eq', label: 'Parametric EQ' },
@@ -61,6 +69,9 @@ export interface MixerActions {
   removeMasterEffect: (index: number) => void
   reorderMasterEffect: (fromIndex: number, toIndex: number) => void
   bypassMasterEffect: (index: number, bypassed: boolean) => void
+  // Effect settings, for a track's chain or the master chain (chainId 'master')
+  getChain: (chainId: ChainId) => EffectSlotInfo[]
+  setEffectParam: (chainId: ChainId, index: number, name: string, value: number) => void
   // Panel height
   setMixerHeight: (height: number) => void
   // Cleanup

@@ -157,11 +157,6 @@ export function TimelineRuler() {
 
       if (endBeat - startBeat > 0.01) {
         setLoopRegion({ startBeat, endBeat })
-        try {
-          window.calliope?.setLoopRegion(startBeat, endBeat, true)
-        } catch {
-          // Engine not available
-        }
       }
 
       ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
@@ -173,11 +168,6 @@ export function TimelineRuler() {
     // Double-click on ruler with existing loop region: remove it
     if (loopRegion) {
       setLoopRegion(null)
-      try {
-        window.calliope?.setLoopRegion(0, 0, false)
-      } catch {
-        // Engine not available
-      }
     }
   }, [loopRegion, setLoopRegion])
 

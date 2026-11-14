@@ -1,8 +1,16 @@
 export type GridResolution = 0.25 | 0.125 | 0.0625 | 0.03125 | 0.16667 | 0.08333 | 0.04167
 
+import type { InstrumentType } from '../../shared/catalog'
+
+export type { InstrumentType }
+
 export interface Track {
   id: string
   name: string
+  /** The instrument this track plays its MIDI clips through. */
+  instrument: InstrumentType
+  /** Instrument settings that differ from the defaults, by parameter name. */
+  params: Record<string, number>
   colorIndex: number // 0-7, indexes into TRACK_COLORS
   muted: boolean
   solo: boolean
@@ -41,9 +49,13 @@ export interface TimelineState {
   // Selection
   selectedClipIds: Set<string>
   selectedTrackId: string | null
-  // Loop
+  // Loop: the region is kept while looping is switched off
   loopRegion: LoopRegion | null
-  // Transport (mirrored from engine)
+  loopEnabled: boolean
+  // Metronome
+  metronomeEnabled: boolean
+  // Transport: tempo and time signature belong to the project;
+  // isPlaying and currentBeat are mirrored from the engine
   isPlaying: boolean
   currentBeat: number
   bpm: number
@@ -52,7 +64,8 @@ export interface TimelineState {
 
 export interface TimelineActions {
   // Track actions
-  addTrack: (name?: string, colorIndex?: number) => void
+  addTrack: (name?: string, colorIndex?: number, instrument?: InstrumentType) => string
+  setTrackParam: (trackId: string, name: string, value: number) => void
   removeTrack: (trackId: string) => void
   renameTrack: (trackId: string, name: string) => void
   reorderTrack: (trackId: string, newOrder: number) => void
@@ -61,11 +74,11 @@ export interface TimelineActions {
   toggleSolo: (trackId: string) => void
   toggleArm: (trackId: string) => void
   // Clip actions
-  addClip: (clip: Omit<Clip, 'id'>) => void
+  addClip: (clip: Omit<Clip, 'id'>) => string
   removeClip: (clipId: string) => void
   moveClip: (clipId: string, startBeat: number, trackId?: string) => void
   resizeClip: (clipId: string, startBeat: number, lengthBeats: number) => void
-  duplicateClip: (clipId: string) => void
+  duplicateClip: (clipId: string) => string | null
   // Clip notes (piano roll integration)
   updateClipNotes: (clipId: string, notes: Record<string, import('./piano-roll').MidiNote>) => void
   // Selection
@@ -83,6 +96,14 @@ export interface TimelineActions {
   toggleSnap: () => void
   // Loop
   setLoopRegion: (region: LoopRegion | null) => void
+  setLoopEnabled: (enabled: boolean) => void
+  // Metronome
+  setMetronomeEnabled: (enabled: boolean) => void
+  // Project tempo
+  setBpm: (bpm: number) => void
+  setTimeSignature: (numerator: number, denominator: number) => void
+  // Playback position, mirrored from the engine
+  setPlaybackPosition: (isPlaying: boolean, currentBeat: number) => void
   // Transport mirror
   setTransportState: (state: {
     isPlaying: boolean

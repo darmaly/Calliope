@@ -111,7 +111,6 @@ bool AudioGraph::initialise(double sampleRate, int bufferSize)
     }
 
     graph_.prepareToPlay(sampleRate, bufferSize);
-    graph_.rebuild();
 
     juce::AudioDeviceManager::AudioDeviceSetup setup;
     setup.sampleRate = sampleRate;
@@ -201,6 +200,24 @@ MetronomeProcessor& AudioGraph::getMetronome() { return *metronomePtr_; }
 AudioConfig AudioGraph::getAudioConfig() const { return currentConfig_; }
 ClipScheduler& AudioGraph::getClipScheduler() { return clipScheduler_; }
 
+// Applies pending topology changes (made with UpdateKind::none) right now.
+//
+// AudioProcessorGraph::rebuild() only rebuilds immediately when called on
+// JUCE's message thread; from any other thread it posts the rebuild to the
+// JUCE message loop. This engine is hosted inside Node/Electron, where no
+// JUCE message loop runs, so a posted rebuild would never happen and the new
+// nodes would never be rendered. prepareToPlay() with unchanged settings takes
+// the immediate path on any thread: it prepares only the nodes that are not
+// prepared yet and swaps in the new render sequence.
+void AudioGraph::rebuildGraphNow()
+{
+    double sampleRate = graph_.getSampleRate();
+    int blockSize = graph_.getBlockSize();
+    if (sampleRate <= 0.0) sampleRate = currentConfig_.sampleRate;
+    if (blockSize <= 0) blockSize = currentConfig_.bufferSize;
+    graph_.prepareToPlay(sampleRate, blockSize);
+}
+
 // --- Tracks ---
 
 const AudioGraph::Track* AudioGraph::findTrack(const std::string& trackId) const
@@ -254,7 +271,7 @@ bool AudioGraph::addTrack(const std::string& trackId, const std::string& instrum
     if (track.instrumentNode == nullptr || track.channelNode == nullptr) {
         if (track.instrumentNode) graph_.removeNode(track.instrumentNode.get(), UpdateKind::none);
         if (track.channelNode) graph_.removeNode(track.channelNode.get(), UpdateKind::none);
-        graph_.rebuild();
+        rebuildGraphNow();
         return false;
     }
 
@@ -269,12 +286,12 @@ bool AudioGraph::addTrack(const std::string& trackId, const std::string& instrum
     if (!connected) {
         graph_.removeNode(track.instrumentNode.get(), UpdateKind::none);
         graph_.removeNode(track.channelNode.get(), UpdateKind::none);
-        graph_.rebuild();
+        rebuildGraphNow();
         return false;
     }
 
-    // One rebuild for the whole change; the graph prepares the new nodes.
-    graph_.rebuild();
+    // One rebuild for the whole change; it also prepares the new nodes.
+    rebuildGraphNow();
 
     // The scheduler keeps the instrument node alive for as long as any of its
     // snapshots can still reach it.
@@ -300,7 +317,7 @@ bool AudioGraph::removeTrack(const std::string& trackId)
 
     graph_.removeNode(it->instrumentNode.get(), UpdateKind::none);
     graph_.removeNode(it->channelNode.get(), UpdateKind::none);
-    graph_.rebuild();
+    rebuildGraphNow();
 
     tracks_.erase(it);
     applySoloState();
@@ -317,7 +334,7 @@ void AudioGraph::clearTracks()
         graph_.removeNode(track.channelNode.get(), UpdateKind::none);
     }
     if (initialised_)
-        graph_.rebuild();
+        rebuildGraphNow();
     tracks_.clear();
 }
 

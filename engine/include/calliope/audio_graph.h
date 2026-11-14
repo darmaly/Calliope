@@ -142,6 +142,7 @@ private:
     const Track* findTrack(const std::string& trackId) const;
     Track* findTrack(const std::string& trackId);
     void applySoloState();  // graphMutex_ must be held
+    void rebuildGraphNow(); // graphMutex_ must be held
 
     // Custom AudioIODeviceCallback that drives the scheduler and transport
     class GraphCallback : public juce::AudioIODeviceCallback {

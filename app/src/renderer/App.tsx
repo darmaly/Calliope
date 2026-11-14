@@ -9,7 +9,8 @@ import { ExportProgress } from './components/export/ExportProgress'
 import { Toast } from './components/shared/Toast'
 import { usePianoRollStore } from './stores/piano-roll-store'
 import { useMixerStore } from './stores/mixer-store'
-import { useProjectStore, initProjectDirtyTracking } from './stores/project-store'
+import { useProjectStore } from './stores/project-store'
+import { newProject, openProject, redo, saveProject, startProjectSession, undo } from './project/session'
 import { useAppStore } from './stores/app-store'
 import './App.css'
 
@@ -35,30 +36,69 @@ export default function App() {
     document.title = `${isDirty ? '* ' : ''}${projectName} - Calliope`
   }, [projectName, isDirty])
 
-  // Engine init and info must be serialized — concurrent JUCE audio system
-  // access from separate threads causes a race condition crash in prepareToPlay
+  // Bring the audio engine up, then start the project session, which rebuilds
+  // the engine from the project document and keeps the two in step.
   useEffect(() => {
-    let cleanupFn: (() => void) | undefined
-    window.calliope.getEngineInfo()
-      .then((info) => {
-        setEngineStatus(`JUCE ${info.juceVersion}`)
-        return window.calliope.initialiseEngine(44100, 512)
-      })
-      .then(() => {
-        cleanupFn = initProjectDirtyTracking()
-      })
-      .catch(() => setEngineStatus('offline'))
-    return () => { cleanupFn?.() }
+    let cancelled = false
+    let stopSession: (() => void) | undefined
+
+    const start = async () => {
+      try {
+        // Serialised: querying devices and opening one at the same time races inside JUCE.
+        const info = await window.calliope.getEngineInfo()
+        const ok = await window.calliope.initialiseEngine(44100, 512)
+        if (cancelled) return
+        if (!ok) {
+          setEngineStatus('no audio output device')
+          return
+        }
+        const config = await window.calliope.getAudioConfig()
+        const stop = await startProjectSession()
+        if (cancelled) {
+          stop()
+          return
+        }
+        stopSession = stop
+        setEngineStatus(`${info.juceVersion} - ${Math.round(config.sampleRate / 100) / 10} kHz`)
+      } catch {
+        if (!cancelled) setEngineStatus('offline')
+      }
+    }
+    void start()
+
+    return () => {
+      cancelled = true
+      stopSession?.()
+    }
   }, [])
 
-  // Listen for menu:export event from main process
+  // Application menu
   useEffect(() => {
-    window.calliope.onShowExportDialog?.(() => {
-      showExportDialog()
+    return window.calliope.onMenuAction((action) => {
+      switch (action) {
+        case 'new':
+          void newProject()
+          break
+        case 'open':
+          void openProject()
+          break
+        case 'save':
+          void saveProject()
+          break
+        case 'save-as':
+          void saveProject({ saveAs: true })
+          break
+        case 'export':
+          showExportDialog()
+          break
+        case 'undo':
+          undo()
+          break
+        case 'redo':
+          redo()
+          break
+      }
     })
-    return () => {
-      window.calliope.removeShowExportDialogListener?.()
-    }
   }, [showExportDialog])
 
   const handleDividerDrag = useCallback((deltaY: number) => {

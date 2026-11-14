@@ -131,3 +131,43 @@ export const usePianoRollStore = create<PianoRollState & PianoRollActions>((set,
     })
   },
 }))
+
+// The piano roll edits a working copy of the open clip's notes. Keep that copy
+// and the clip in the timeline identical at all times, in both directions:
+//  - an edit here is written to the clip immediately, so playback, saving and
+//    undo always see it (it used to reach the clip only when the editor closed,
+//    and never reached the audio engine at all);
+//  - a change to the clip from elsewhere (undo, opening a project, the AI
+//    agent) shows up here.
+usePianoRollStore.subscribe((state, previous) => {
+  if (state.notes === previous.notes) return
+  if (!state.activeClipId || state.activeClipId !== previous.activeClipId) return
+  const clip = useTimelineStore.getState().clips[state.activeClipId]
+  if (clip && clip.notes !== state.notes) {
+    useTimelineStore.getState().updateClipNotes(state.activeClipId, state.notes)
+  }
+})
+
+useTimelineStore.subscribe((state, previous) => {
+  if (state.clips === previous.clips) return
+  const pianoRoll = usePianoRollStore.getState()
+  if (!pianoRoll.activeClipId) return
+
+  const clip = state.clips[pianoRoll.activeClipId]
+  if (!clip) {
+    // The open clip was deleted.
+    usePianoRollStore.setState({
+      activeClipId: null,
+      notes: {},
+      selectedNoteIds: new Set<string>(),
+    })
+    return
+  }
+  if (clip.notes && clip.notes !== pianoRoll.notes) {
+    const notes = clip.notes
+    usePianoRollStore.setState({
+      notes,
+      selectedNoteIds: new Set([...pianoRoll.selectedNoteIds].filter((id) => id in notes)),
+    })
+  }
+})

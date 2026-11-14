@@ -237,6 +237,36 @@ describe.skipIf(!addonBuilt)('native addon', () => {
     expect(levels.a).toHaveProperty('peakLeft')
   })
 
+  it('produces sound on the live device path when the transport plays', async (ctx) => {
+    if (!engineReady) return ctx.skip()
+    await native.resetProject()
+    await native.setMetronomeEnabled(false)
+    await native.addTrack({ trackId: 'live', instrument: 'polysynth' })
+    await native.addClip({
+      clipId: 'c',
+      trackId: 'live',
+      startBeat: 0,
+      lengthBeats: 4,
+      notes: [{ pitch: 60, startBeat: 0, lengthBeats: 4, velocity: 110 }],
+    })
+
+    await native.transportPlay()
+    let trackPeak = 0
+    let masterPeak = 0
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 25))
+      const levels = await native.getMeterLevels()
+      trackPeak = Math.max(trackPeak, levels.live?.peakLeft ?? 0)
+      masterPeak = Math.max(masterPeak, levels.master.peakLeft)
+    }
+    const position = (await native.getTransportState()).ppqPosition
+    await native.transportStop()
+
+    expect(position).toBeGreaterThan(0.5)
+    expect(trackPeak).toBeGreaterThan(0.01)
+    expect(masterPeak).toBeGreaterThan(0.01)
+  })
+
   it('reports which export formats this build supports', () => {
     const formats = native.getExportFormats()
     expect(formats.wav16).toBe(true)

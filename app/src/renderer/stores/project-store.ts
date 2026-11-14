@@ -6,6 +6,10 @@ export interface ToastMessage {
   retryFn?: () => void
 }
 
+// Where the project lives on disk and whether it has unsaved changes, plus
+// the export dialog / progress / toast UI state. The project's contents are
+// in the timeline and mixer stores; saving and opening are in project/session.
+
 export interface ProjectState {
   /** Path to the current project file on disk, null if unsaved */
   filePath: string | null
@@ -15,12 +19,6 @@ export interface ProjectState {
   isDirty: boolean
   /** ISO timestamp of last successful save */
   lastSaved: string | null
-  /** Whether autosave is enabled */
-  autosaveEnabled: boolean
-  /** Autosave interval in milliseconds */
-  autosaveIntervalMs: number
-  /** ISO timestamp of last autosave */
-  lastAutosaved: string | null
   /** Whether the export dialog is open */
   exportDialogOpen: boolean
   /** Export progress: null = not exporting, 0-1 = in progress */
@@ -32,41 +30,24 @@ export interface ProjectState {
 export interface ProjectActions {
   /** Mark the project as having unsaved changes */
   markDirty: () => void
-  /** Mark the project as saved (clean state) */
+  /** Mark the project as saved (clean state), optionally at a new path */
   markClean: (filePath?: string) => void
-  /** Set the current project file path */
-  setFilePath: (filePath: string | null) => void
-  /** Update autosave settings */
-  setAutosave: (enabled: boolean, intervalMs?: number) => void
-  /** Record an autosave event */
-  recordAutosave: (filePath: string, timestamp: string) => void
-  /** Reset to new project state */
+  /** Back to an unsaved, untitled project */
   reset: () => void
-  /** Save the project (delegates to IPC) */
-  save: () => Promise<boolean>
-  /** Save As (delegates to IPC) */
-  saveAs: () => Promise<boolean>
-  /** Load a project (delegates to IPC) */
-  load: () => Promise<boolean>
-  /** Create a new project */
-  newProject: () => Promise<void>
-  /** Show the export dialog */
   showExportDialog: () => void
-  /** Hide the export dialog */
   hideExportDialog: () => void
-  /** Set export progress (null = not exporting, 0-1 = in progress) */
   setExportProgress: (pct: number | null) => void
-  /** Show a toast notification */
   showToast: (msg: ToastMessage) => void
-  /** Hide the current toast */
   hideToast: () => void
 }
 
-const deriveProjectName = (filePath: string | null): string => {
+export const PROJECT_EXTENSION = 'calliope'
+
+export const deriveProjectName = (filePath: string | null): string => {
   if (!filePath) return 'Untitled'
   const parts = filePath.replace(/\\/g, '/').split('/')
   const fileName = parts[parts.length - 1]
-  return fileName.replace(/\.ltproj$/, '')
+  return fileName.replace(/\.(calliope|ltproj)$/i, '')
 }
 
 const initialState: ProjectState = {
@@ -74,9 +55,6 @@ const initialState: ProjectState = {
   projectName: 'Untitled',
   isDirty: false,
   lastSaved: null,
-  autosaveEnabled: true,
-  autosaveIntervalMs: 120000,
-  lastAutosaved: null,
   exportDialogOpen: false,
   exportProgress: null,
   toastMessage: null,
@@ -86,11 +64,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
   ...initialState,
 
   markDirty: () => {
-    if (!get().isDirty) {
-      set({ isDirty: true })
-      // Notify main process for autosave tracking
-      window.calliope?.projectMarkDirty?.()
-    }
+    if (!get().isDirty) set({ isDirty: true })
   },
 
   markClean: (filePath?: string) => {
@@ -105,64 +79,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     set(updates)
   },
 
-  setFilePath: (filePath: string | null) =>
-    set({
-      filePath,
-      projectName: deriveProjectName(filePath),
-    }),
-
-  setAutosave: (enabled: boolean, intervalMs?: number) => {
-    const updates: Partial<ProjectState> = { autosaveEnabled: enabled }
-    if (intervalMs !== undefined) updates.autosaveIntervalMs = intervalMs
-    set(updates)
-    // Sync to main process
-    window.calliope?.projectSetAutosave?.(enabled, intervalMs)
-  },
-
-  recordAutosave: (filePath: string, timestamp: string) =>
-    set({
-      lastAutosaved: timestamp,
-      isDirty: false,
-      filePath,
-      projectName: deriveProjectName(filePath),
-    }),
-
-  reset: () => set({ ...initialState }),
-
-  save: async () => {
-    const { filePath } = get()
-    const result = await window.calliope.projectSave(filePath ?? undefined)
-    if (result.success && result.filePath) {
-      get().markClean(result.filePath)
-    }
-    return result.success
-  },
-
-  saveAs: async () => {
-    const result = await window.calliope.projectSaveAs()
-    if (result.success && result.filePath) {
-      get().markClean(result.filePath)
-    }
-    return result.success
-  },
-
-  load: async () => {
-    const result = await window.calliope.projectLoad()
-    if (result.success && result.filePath) {
-      set({
-        filePath: result.filePath,
-        projectName: deriveProjectName(result.filePath),
-        isDirty: false,
-        lastSaved: new Date().toISOString(),
-      })
-    }
-    return result.success
-  },
-
-  newProject: async () => {
-    await window.calliope.projectNew()
-    set({ ...initialState })
-  },
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      // Leave whatever the user is looking at (a toast, an export) alone.
+      exportDialogOpen: state.exportDialogOpen,
+      exportProgress: state.exportProgress,
+      toastMessage: state.toastMessage,
+    })),
 
   showExportDialog: () => set({ exportDialogOpen: true }),
   hideExportDialog: () => set({ exportDialogOpen: false }),
@@ -170,22 +94,3 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
   showToast: (msg: ToastMessage) => set({ toastMessage: msg }),
   hideToast: () => set({ toastMessage: null }),
 }))
-
-// Subscribe to command events to auto-mark dirty
-export function initProjectDirtyTracking(): () => void {
-  const handleCommandEvent = () => {
-    useProjectStore.getState().markDirty()
-  }
-
-  window.calliope?.onCommandEvent?.(handleCommandEvent)
-
-  // Subscribe to autosave notifications
-  window.calliope?.onProjectAutosaved?.((data) => {
-    useProjectStore.getState().recordAutosave(data.filePath, data.timestamp)
-  })
-
-  return () => {
-    window.calliope?.removeCommandEventListener?.()
-    window.calliope?.removeProjectAutosavedListener?.()
-  }
-}

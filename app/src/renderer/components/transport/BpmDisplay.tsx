@@ -22,7 +22,7 @@ export function BpmDisplay() {
   const commit = useCallback(() => {
     const val = Math.round(Number(editValue))
     if (val >= 20 && val <= 300) {
-      window.calliope.setBpm(val)
+      useTimelineStore.getState().setBpm(val)
     }
     setIsEditing(false)
   }, [editValue])

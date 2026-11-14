@@ -9,6 +9,7 @@ import {
   cutNotes,
   quantizeSelectedNotes,
 } from '../utils/note-operations'
+import { redo, undo } from '../project/session'
 
 /**
  * Keyboard shortcuts for the piano roll editor.
@@ -93,7 +94,7 @@ export function usePianoRollShortcuts(): void {
       if (mod && !e.shiftKey && e.key === 'z') {
         e.preventDefault()
         e.stopImmediatePropagation()
-        window.calliope?.commandUndo()
+        undo()
         return
       }
 
@@ -101,7 +102,7 @@ export function usePianoRollShortcuts(): void {
       if (mod && e.shiftKey && e.key === 'z') {
         e.preventDefault()
         e.stopImmediatePropagation()
-        window.calliope?.commandRedo()
+        redo()
         return
       }
 

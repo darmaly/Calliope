@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import { INSTRUMENTS, clampParam, findParam } from '../../shared/catalog'
 import type {
+  InstrumentType,
   TimelineState,
   TimelineActions,
   Clip,
@@ -19,13 +21,16 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
   selectedClipIds: new Set<string>(),
   selectedTrackId: null,
   loopRegion: null,
+  loopEnabled: false,
+  metronomeEnabled: false,
   isPlaying: false,
   currentBeat: 0,
   bpm: 120,
   timeSignature: { numerator: 4, denominator: 4 },
 
   // Track actions
-  addTrack: (name?: string, colorIndex?: number) =>
+  addTrack: (name?: string, colorIndex?: number, instrument: InstrumentType = 'polysynth') => {
+    const id = crypto.randomUUID()
     set((state) => {
       const trackName = name ?? `Track ${state.tracks.length + 1}`
       const color = colorIndex ?? state.tracks.length % 8
@@ -33,8 +38,10 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
         tracks: [
           ...state.tracks,
           {
-            id: crypto.randomUUID(),
+            id,
             name: trackName,
+            instrument,
+            params: {},
             colorIndex: color,
             muted: false,
             solo: false,
@@ -42,6 +49,23 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
             order: state.tracks.length,
           },
         ],
+      }
+    })
+    return id
+  },
+
+  setTrackParam: (trackId: string, name: string, value: number) =>
+    set((state) => {
+      const track = state.tracks.find((t) => t.id === trackId)
+      if (!track) return state
+      const spec = findParam(INSTRUMENTS[track.instrument].params, name)
+      if (!spec) return state
+      const clamped = clampParam(spec, value)
+      if (track.params[name] === clamped) return state
+      return {
+        tracks: state.tracks.map((t) =>
+          t.id === trackId ? { ...t, params: { ...t.params, [name]: clamped } } : t,
+        ),
       }
     }),
 
@@ -53,9 +77,14 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
           newClips[id] = clip
         }
       }
+      const selectedClipIds = new Set(
+        [...state.selectedClipIds].filter((id) => newClips[id] !== undefined),
+      )
       return {
         tracks: state.tracks.filter((t) => t.id !== trackId),
         clips: newClips,
+        selectedClipIds,
+        selectedTrackId: state.selectedTrackId === trackId ? null : state.selectedTrackId,
       }
     }),
 
@@ -90,18 +119,21 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
     })),
 
   // Clip actions
-  addClip: (clip: Omit<Clip, 'id'>) =>
-    set((state) => {
-      const id = crypto.randomUUID()
-      return {
-        clips: { ...state.clips, [id]: { ...clip, id } as Clip },
-      }
-    }),
+  addClip: (clip: Omit<Clip, 'id'>) => {
+    const id = crypto.randomUUID()
+    set((state) => ({
+      clips: { ...state.clips, [id]: { ...clip, id } as Clip },
+    }))
+    return id
+  },
 
   removeClip: (clipId: string) =>
     set((state) => {
+      if (!(clipId in state.clips)) return state
       const { [clipId]: _removed, ...rest } = state.clips
-      return { clips: rest }
+      const selectedClipIds = new Set(state.selectedClipIds)
+      selectedClipIds.delete(clipId)
+      return { clips: rest, selectedClipIds }
     }),
 
   moveClip: (clipId: string, startBeat: number, trackId?: string) =>
@@ -124,18 +156,18 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
       }
     }),
 
-  duplicateClip: (clipId: string) =>
-    set((state) => {
-      const clip = state.clips[clipId]
-      if (!clip) return state
-      const newId = crypto.randomUUID()
-      const newClip: Clip = {
-        ...clip,
-        id: newId,
-        startBeat: clip.startBeat + clip.lengthBeats,
-      }
-      return { clips: { ...state.clips, [newId]: newClip } }
-    }),
+  duplicateClip: (clipId: string) => {
+    const clip = get().clips[clipId]
+    if (!clip) return null
+    const newId = crypto.randomUUID()
+    const newClip: Clip = {
+      ...clip,
+      id: newId,
+      startBeat: clip.startBeat + clip.lengthBeats,
+    }
+    set((state) => ({ clips: { ...state.clips, [newId]: newClip } }))
+    return newId
+  },
 
   // Clip notes (piano roll integration)
   updateClipNotes: (clipId, notes) =>
@@ -186,7 +218,34 @@ export const useTimelineStore = create<TimelineState & TimelineActions>((set, ge
   toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
 
   // Loop actions
-  setLoopRegion: (region: LoopRegion | null) => set(() => ({ loopRegion: region })),
+  // Drawing a region switches looping on; clearing it switches looping off.
+  setLoopRegion: (region: LoopRegion | null) =>
+    set(() => ({ loopRegion: region, loopEnabled: region !== null })),
+  setLoopEnabled: (enabled: boolean) => set(() => ({ loopEnabled: enabled })),
+
+  // Metronome
+  setMetronomeEnabled: (enabled: boolean) => set(() => ({ metronomeEnabled: enabled })),
+
+  // Project tempo
+  setBpm: (bpm: number) =>
+    set((state) => {
+      if (!Number.isFinite(bpm)) return state
+      return { bpm: Math.min(300, Math.max(20, bpm)) }
+    }),
+  setTimeSignature: (numerator: number, denominator: number) =>
+    set((state) => {
+      if (!Number.isInteger(numerator) || numerator < 1 || numerator > 32) return state
+      if (![1, 2, 4, 8, 16, 32].includes(denominator)) return state
+      return { timeSignature: { numerator, denominator } }
+    }),
+
+  // Playback position (mirrored from the engine many times a second)
+  setPlaybackPosition: (isPlaying: boolean, currentBeat: number) =>
+    set((state) =>
+      state.isPlaying === isPlaying && state.currentBeat === currentBeat
+        ? state
+        : { isPlaying, currentBeat },
+    ),
 
   // Transport mirror
   setTransportState: (state) =>

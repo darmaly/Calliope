@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Circle } from 'lucide-react'
 import { useMixerStore } from '../../stores/mixer-store'
 import { useTimelineStore } from '../../stores/timeline-store'
@@ -8,6 +8,9 @@ import { LevelMeter } from './LevelMeter'
 import { EffectSlotList } from './EffectSlotList'
 import { EffectParamPopover } from './EffectParamPopover'
 import type { Track } from '../../types/timeline'
+import type { EffectSlotInfo } from '../../types/mixer'
+
+const NO_EFFECTS: EffectSlotInfo[] = []
 
 interface ChannelStripProps {
   track: Track
@@ -23,16 +26,24 @@ export function ChannelStrip({ track }: ChannelStripProps) {
   const volume = useMixerStore((s) => s.trackVolumes[track.id] ?? 1.0)
   const pan = useMixerStore((s) => s.trackPans[track.id] ?? 0.0)
   const level = useMixerStore((s) => s.trackLevels[track.id])
-  const effects = useMixerStore((s) => s.trackEffects[track.id] ?? [])
+  // A selector must return the same value for the same state: a fresh [] on
+  // every call makes React re-render forever.
+  const effects = useMixerStore((s) => s.trackEffects[track.id] ?? NO_EFFECTS)
 
   const [popover, setPopover] = useState<{ index: number; x: number; y: number } | null>(null)
 
   const isSelected = selectedTrackId === track.id
 
+  // Open effect settings beside this strip, wherever it has scrolled to.
+  const stripRef = useRef<HTMLDivElement>(null)
+  const anchor = useCallback(() => {
+    const rect = stripRef.current?.getBoundingClientRect()
+    return rect ? { x: rect.right + 4, y: rect.top } : { x: 80, y: 200 }
+  }, [])
+
   const handleVolumeChange = useCallback(
     (gain: number) => {
       useMixerStore.getState().setTrackVolume(track.id, gain)
-      window.calliope.setTrackVolume(track.id, gain).catch(() => {})
     },
     [track.id],
   )
@@ -40,7 +51,6 @@ export function ChannelStrip({ track }: ChannelStripProps) {
   const handlePanChange = useCallback(
     (newPan: number) => {
       useMixerStore.getState().setTrackPan(track.id, newPan)
-      window.calliope.setTrackPan(track.id, newPan).catch(() => {})
     },
     [track.id],
   )
@@ -48,7 +58,6 @@ export function ChannelStrip({ track }: ChannelStripProps) {
   const handleAddEffect = useCallback(
     (effectType: string) => {
       useMixerStore.getState().addTrackEffect(track.id, effectType)
-      window.calliope.effectInsert(track.id, effectType).catch(() => {})
     },
     [track.id],
   )
@@ -56,7 +65,6 @@ export function ChannelStrip({ track }: ChannelStripProps) {
   const handleRemoveEffect = useCallback(
     (index: number) => {
       useMixerStore.getState().removeTrackEffect(track.id, index)
-      window.calliope.effectRemove(track.id, index).catch(() => {})
     },
     [track.id],
   )
@@ -67,7 +75,6 @@ export function ChannelStrip({ track }: ChannelStripProps) {
       const slot = slots[index]
       if (!slot) return
       useMixerStore.getState().bypassTrackEffect(track.id, index, !slot.bypassed)
-      window.calliope.effectBypass(track.id, index, !slot.bypassed).catch(() => {})
     },
     [track.id],
   )
@@ -77,24 +84,21 @@ export function ChannelStrip({ track }: ChannelStripProps) {
       const slots = useMixerStore.getState().trackEffects[track.id] ?? []
       const slot = slots[index]
       if (!slot) return
-      // Position popover near the channel strip
-      setPopover((prev) =>
-        prev?.index === index ? null : { index, x: 80, y: 200 },
-      )
+      setPopover((prev) => (prev?.index === index ? null : { index, ...anchor() }))
     },
-    [track.id],
+    [track.id, anchor],
   )
 
   const handleReorderEffect = useCallback(
     (fromIndex: number, toIndex: number) => {
       useMixerStore.getState().reorderTrackEffect(track.id, fromIndex, toIndex)
-      try { window.calliope.effectReorder(track.id, fromIndex, toIndex) } catch {}
     },
     [track.id],
   )
 
   return (
     <div
+      ref={stripRef}
       style={{
         width: 64,
         minWidth: 64,

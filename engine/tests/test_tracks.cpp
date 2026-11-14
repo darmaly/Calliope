@@ -7,7 +7,9 @@
 #include "calliope/engine.h"
 #include "calliope/audio_exporter.h"
 #include "calliope/commands/effect_commands.h"
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 using namespace calliope;
 
@@ -301,6 +303,41 @@ TEST_CASE("Clips on a removed track stop playing", "[tracks][integration]")
 
     REQUIRE(engine.getClipScheduler().getClipCount() == 0);
     REQUIRE(peakOf(render(engine, 2.0)) == 0.0f);
+}
+
+TEST_CASE("A track added from another thread is heard on the live device", "[tracks][integration][live]")
+{
+    // The app initialises the engine on a worker thread and then edits it from
+    // the JavaScript thread, with no JUCE message loop running. JUCE defers
+    // graph rebuilds requested off its message thread to that loop, so this
+    // test fails if a track edit ever relies on a deferred rebuild.
+    auto& engine = Engine::getInstance();
+    bool ready = false;
+    std::thread initThread([&] { ready = engine.initialise(44100.0, 512); });
+    initThread.join();
+    if (!ready) SKIP("no audio output device available");
+
+    engine.setMetronomeEnabled(false);
+    REQUIRE(engine.addTrack("live", InstrumentTypes::polySynth));
+    engine.getClipScheduler().addClip(makeClip("c", "live", 0.0, 8.0, {{60, 0.0, 8.0, 0.9f}}));
+
+    engine.transportPlay();
+    float trackPeak = 0.0f;
+    float masterPeak = 0.0f;
+    for (int i = 0; i < 40; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        auto levels = engine.getMeterLevels();
+        for (const auto& track : levels.tracks)
+            trackPeak = std::max(trackPeak, track.peakLeft);
+        masterPeak = std::max(masterPeak, levels.master.peakLeft);
+    }
+    const bool advanced = engine.getTransport().getSamplePosition() > 0;
+    engine.transportStop();
+    engine.shutdown();
+
+    REQUIRE(advanced);
+    REQUIRE(trackPeak > 0.01f);
+    REQUIRE(masterPeak > 0.01f);
 }
 
 // ---------------------------------------------------------------------------
