@@ -21,6 +21,10 @@ public:
     // Propagates prepareToPlay to all effects in the active chain
     void prepareToPlay(double sampleRate, int samplesPerBlock);
 
+    // Clears the internal state of every effect (delay lines, reverb tails).
+    // Not real-time safe; call while the chain is not being processed.
+    void reset();
+
     // Message thread -- may allocate
     // Returns the slot index where the effect was inserted.
     // position = -1 means append to end.

@@ -1,13 +1,14 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "calliope/midi_sink.h"
 #include <atomic>
 
 namespace calliope {
 
 class BassSynthVoice;
 
-class BassSynthProcessor : public juce::AudioProcessor {
+class BassSynthProcessor : public juce::AudioProcessor, public MidiSink {
 public:
     BassSynthProcessor();
 
@@ -31,8 +32,8 @@ public:
     void getStateInformation(juce::MemoryBlock&) override;
     void setStateInformation(const void*, int) override;
 
-    // Thread-safe MIDI injection from non-audio threads
-    void addMidiEvent(const juce::MidiMessage& msg);
+    // Thread-safe MIDI injection (MidiSink). sampleOffset is relative to the next block.
+    void addMidiEvent(const juce::MidiMessage& msg, int sampleOffset = 0) override;
 
     // Oscillator parameters
     std::atomic<int> oscWaveform{0};        // 0=saw, 1=square, 2=sine, 3=triangle

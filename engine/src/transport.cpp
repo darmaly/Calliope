@@ -149,6 +149,11 @@ double Transport::getPpqPosition() const
     return timeInSeconds * (currentBpm / 60.0);
 }
 
+double Transport::getSampleRate() const
+{
+    return sampleRate_.load(std::memory_order_relaxed);
+}
+
 bool Transport::isLooping() const
 {
     return looping_.load(std::memory_order_relaxed);

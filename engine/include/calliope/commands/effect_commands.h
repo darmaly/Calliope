@@ -11,6 +11,10 @@ class Engine;
 // Factory function to create effect processors by type name
 std::unique_ptr<juce::AudioProcessor> createEffect(const juce::String& type);
 
+// The type name createEffect() needs to rebuild this processor
+// ("eq", "compressor", ...). Empty for a processor that is not one of ours.
+juce::String effectTypeForProcessor(const juce::AudioProcessor& effect);
+
 // --------------------------------------------------------------------------
 // InsertEffectCommand -- inserts a new effect into an InsertChain
 // --------------------------------------------------------------------------

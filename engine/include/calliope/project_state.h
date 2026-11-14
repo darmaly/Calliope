@@ -1,13 +1,24 @@
 #pragma once
 #include <juce_core/juce_core.h>
+#include "calliope/clip_scheduler.h"
+#include <vector>
 
 namespace calliope {
 
 // Forward declarations
 class Engine;
 
+// A complete, replayable description of the engine: Engine::applyProjectState
+// rebuilds exactly this from an empty project.
+//
+// Instrument, mixer and effect settings are not modelled field by field. They
+// live in `parameters`, keyed by the same IDs the ParameterRegistry exposes
+// ("track.{id}.filterCutoff", "effects.{id}.0.threshold", ...), so a new
+// parameter is saved and restored without touching this class.
 class ProjectState {
 public:
+    static constexpr int kFormatVersion = 2;
+
     struct TransportData {
         juce::String state = "stopped";
         double bpm = 120.0;
@@ -32,70 +43,30 @@ public:
         int bufferSize = 512;
     };
 
-    struct PolySynthData {
-        int osc1Waveform = 0;
-        int osc2Waveform = 2;
-        float oscMix = 0.5f;
-        float osc2Detune = 0.0f;
-        float filterCutoff = 5000.0f;
-        float filterResonance = 0.1f;
-        float filterEnvAmount = 0.3f;
-        float ampAttack = 0.01f;
-        float ampDecay = 0.1f;
-        float ampSustain = 0.8f;
-        float ampRelease = 0.3f;
-        float filterAttack = 0.01f;
-        float filterDecay = 0.2f;
-        float filterSustain = 0.5f;
-        float filterRelease = 0.3f;
-        float lfoRate = 1.0f;
-        float lfoDepth = 0.0f;
-        int lfoTarget = 1;
-        float masterGain = 0.7f;
-    };
-
-    struct BassSynthData {
-        int oscWaveform = 0;
-        float subOscMix = 0.5f;
-        int subOscOctave = -1;
-        float filterCutoff = 800.0f;
-        float filterResonance = 0.2f;
-        float filterEnvAmount = 0.4f;
-        float ampAttack = 0.005f;
-        float ampDecay = 0.15f;
-        float ampSustain = 0.9f;
-        float ampRelease = 0.2f;
-        float filterAttack = 0.005f;
-        float filterDecay = 0.3f;
-        float filterSustain = 0.3f;
-        float filterRelease = 0.2f;
-        float masterGain = 0.8f;
-    };
-
-    struct DrumMachineData {
-        float volume = 0.8f;
-        std::vector<juce::String> padNames;
+    struct TrackData {
+        juce::String id;
+        juce::String instrument;   // one of InstrumentTypes
     };
 
     struct EffectSlotData {
-        juce::String effectType;
+        juce::String effectType;   // factory key: "eq", "compressor", "reverb", "delay", "limiter"
         bool bypassed = false;
-        juce::var parameters;  // JSON object with parameter key-value pairs
     };
 
     struct InsertChainData {
-        juce::String trackId;
+        juce::String trackId;      // a track ID or "master"
         std::vector<EffectSlotData> effects;
     };
 
+    int formatVersion = kFormatVersion;
     TransportData transport;
     MetronomeData metronome;
     MasterBusData masterBus;
     AudioConfigData audioConfig;
-    PolySynthData polySynth;
-    BassSynthData bassSynth;
-    DrumMachineData drumMachine;
+    std::vector<TrackData> tracks;
     std::vector<InsertChainData> effectChains;
+    std::vector<MidiClipData> clips;
+    juce::var parameters;          // object: parameter ID -> value
 
     // Serialize to JSON string
     juce::String toJson() const;

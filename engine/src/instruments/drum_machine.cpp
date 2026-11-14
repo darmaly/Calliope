@@ -18,6 +18,11 @@ const juce::String DrumMachineProcessor::getName() const { return "DrumMachine";
 void DrumMachineProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
     synth_.setCurrentPlaybackSampleRate(sampleRate);
+
+    // Reserve now so queuing MIDI from the audio thread does not allocate.
+    const juce::SpinLock::ScopedLockType lock(midiLock_);
+    pendingMidi_.ensureSize(4096);
+    blockMidi_.ensureSize(4096);
 }
 
 void DrumMachineProcessor::releaseResources() {}
@@ -25,14 +30,15 @@ void DrumMachineProcessor::releaseResources() {}
 void DrumMachineProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/)
 {
     // Merge pending MIDI events
-    juce::MidiBuffer incomingMidi;
+    // Swapping keeps both buffers' storage alive, so nothing is allocated here.
+    blockMidi_.clear();
     {
         const juce::SpinLock::ScopedLockType lock(midiLock_);
-        incomingMidi.swapWith(pendingMidi_);
+        blockMidi_.swapWith(pendingMidi_);
     }
 
     buffer.clear();
-    synth_.renderNextBlock(buffer, incomingMidi, 0, buffer.getNumSamples());
+    synth_.renderNextBlock(buffer, blockMidi_, 0, buffer.getNumSamples());
 
     // Apply volume
     float vol = volume.load(std::memory_order_relaxed);
@@ -114,10 +120,10 @@ std::vector<juce::String> DrumMachineProcessor::getSampleNames() const
     return std::vector<juce::String>(padNames_.begin(), padNames_.end());
 }
 
-void DrumMachineProcessor::addMidiEvent(const juce::MidiMessage& msg)
+void DrumMachineProcessor::addMidiEvent(const juce::MidiMessage& msg, int sampleOffset)
 {
     const juce::SpinLock::ScopedLockType lock(midiLock_);
-    pendingMidi_.addEvent(msg, 0);
+    pendingMidi_.addEvent(msg, juce::jmax(0, sampleOffset));
 }
 
 double DrumMachineProcessor::getTailLengthSeconds() const { return 0.0; }

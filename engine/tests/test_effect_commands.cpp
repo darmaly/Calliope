@@ -335,74 +335,97 @@ TEST_CASE("ProjectState effectChains serialization roundtrip", "[ProjectState]")
 {
     ProjectState state;
 
-    // Manually build effect chain data
     ProjectState::InsertChainData chainData;
-    chainData.trackId = "polysynth";
-
-    ProjectState::EffectSlotData slot;
-    slot.effectType = "Compressor";
-    slot.bypassed = false;
-    auto* params = new juce::DynamicObject();
-    params->setProperty("threshold", -10.0);
-    params->setProperty("ratio", 4.0);
-    slot.parameters = juce::var(params);
-    chainData.effects.push_back(std::move(slot));
-
+    chainData.trackId = "lead";
+    chainData.effects.push_back({"compressor", false});
     state.effectChains.push_back(std::move(chainData));
 
-    // Serialize and deserialize
+    // Effect settings are ordinary parameters, keyed by track and slot.
+    auto* params = new juce::DynamicObject();
+    params->setProperty("effects.lead.0.threshold", -10.0);
+    params->setProperty("effects.lead.0.ratio", 4.0);
+    state.parameters = juce::var(params);
+
     juce::String json = state.toJson();
     REQUIRE(json.contains("effectChains"));
 
     ProjectState loaded;
     REQUIRE(loaded.fromJson(json) == true);
     REQUIRE(loaded.effectChains.size() == 1);
-    REQUIRE(loaded.effectChains[0].trackId == "polysynth");
+    REQUIRE(loaded.effectChains[0].trackId == "lead");
     REQUIRE(loaded.effectChains[0].effects.size() == 1);
-    REQUIRE(loaded.effectChains[0].effects[0].effectType == "Compressor");
+    REQUIRE(loaded.effectChains[0].effects[0].effectType == "compressor");
     REQUIRE(loaded.effectChains[0].effects[0].bypassed == false);
 
-    auto* loadedParams = loaded.effectChains[0].effects[0].parameters.getDynamicObject();
+    auto* loadedParams = loaded.parameters.getDynamicObject();
     REQUIRE(loadedParams != nullptr);
-    REQUIRE(static_cast<double>(loadedParams->getProperty("threshold")) == -10.0);
-    REQUIRE(static_cast<double>(loadedParams->getProperty("ratio")) == 4.0);
+    REQUIRE(static_cast<double>(loadedParams->getProperty("effects.lead.0.threshold")) == -10.0);
+    REQUIRE(static_cast<double>(loadedParams->getProperty("effects.lead.0.ratio")) == 4.0);
 }
 
-TEST_CASE("ProjectState effectChains slot has effectType, bypassed, and parameters", "[ProjectState]")
+TEST_CASE("ProjectState effectChains keep slot order and bypass state", "[ProjectState]")
 {
     ProjectState state;
 
     ProjectState::InsertChainData chainData;
     chainData.trackId = "master";
-
-    ProjectState::EffectSlotData slot1;
-    slot1.effectType = "Limiter";
-    slot1.bypassed = true;
-    auto* p1 = new juce::DynamicObject();
-    p1->setProperty("threshold", -1.0);
-    p1->setProperty("release", 100.0);
-    slot1.parameters = juce::var(p1);
-    chainData.effects.push_back(std::move(slot1));
-
-    ProjectState::EffectSlotData slot2;
-    slot2.effectType = "Reverb";
-    slot2.bypassed = false;
-    auto* p2 = new juce::DynamicObject();
-    p2->setProperty("roomSize", 0.5);
-    slot2.parameters = juce::var(p2);
-    chainData.effects.push_back(std::move(slot2));
-
+    chainData.effects.push_back({"limiter", true});
+    chainData.effects.push_back({"reverb", false});
     state.effectChains.push_back(std::move(chainData));
 
-    juce::String json = state.toJson();
-
     ProjectState loaded;
-    loaded.fromJson(json);
+    REQUIRE(loaded.fromJson(state.toJson()));
 
     REQUIRE(loaded.effectChains[0].effects.size() == 2);
-    REQUIRE(loaded.effectChains[0].effects[0].effectType == "Limiter");
+    REQUIRE(loaded.effectChains[0].effects[0].effectType == "limiter");
     REQUIRE(loaded.effectChains[0].effects[0].bypassed == true);
-    REQUIRE(loaded.effectChains[0].effects[1].effectType == "Reverb");
+    REQUIRE(loaded.effectChains[0].effects[1].effectType == "reverb");
     REQUIRE(loaded.effectChains[0].effects[1].bypassed == false);
 }
 
+TEST_CASE("effectTypeForProcessor names every effect createEffect can build", "[EffectCommands]")
+{
+    for (const char* type : {"eq", "compressor", "reverb", "delay", "limiter"}) {
+        auto effect = createEffect(type);
+        REQUIRE(effect != nullptr);
+        REQUIRE(effectTypeForProcessor(*effect) == juce::String(type));
+    }
+}
+
+TEST_CASE("ProjectState round-trips tracks, clips and notes", "[ProjectState]")
+{
+    ProjectState state;
+    state.tracks.push_back({"t1", "polysynth"});
+    state.tracks.push_back({"t2", "drumMachine"});
+
+    MidiClipData clip;
+    clip.clipId = "c1";
+    clip.trackId = "t2";
+    clip.startBeat = 8.0;
+    clip.lengthBeats = 4.0;
+    clip.notes.push_back({36, 0.0, 0.25, 1.0f});
+    clip.notes.push_back({42, 0.5, 0.25, 0.5f});
+    state.clips.push_back(clip);
+
+    ProjectState loaded;
+    REQUIRE(loaded.fromJson(state.toJson()));
+
+    REQUIRE(loaded.formatVersion == ProjectState::kFormatVersion);
+    REQUIRE(loaded.tracks.size() == 2);
+    REQUIRE(loaded.tracks[1].id == "t2");
+    REQUIRE(loaded.tracks[1].instrument == "drumMachine");
+    REQUIRE(loaded.clips.size() == 1);
+    REQUIRE(loaded.clips[0].trackId == "t2");
+    REQUIRE(loaded.clips[0].startBeat == 8.0);
+    REQUIRE(loaded.clips[0].notes.size() == 2);
+    REQUIRE(loaded.clips[0].notes[1].pitch == 42);
+    REQUIRE(loaded.clips[0].notes[1].velocity == 0.5f);
+}
+
+TEST_CASE("ProjectState fromJson rejects input that is not a JSON object", "[ProjectState]")
+{
+    ProjectState state;
+    REQUIRE_FALSE(state.fromJson("not json"));
+    REQUIRE_FALSE(state.fromJson("[1, 2, 3]"));
+    REQUIRE_FALSE(state.fromJson(""));
+}

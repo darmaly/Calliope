@@ -39,6 +39,12 @@ void InsertChain::prepareToPlay(double sampleRate, int samplesPerBlock)
     }
 }
 
+void InsertChain::reset()
+{
+    // The effects clear their DSP state when prepared.
+    prepareToPlay(currentSampleRate_, currentBlockSize_);
+}
+
 int InsertChain::insertEffect(std::unique_ptr<juce::AudioProcessor> effect, int position)
 {
     auto* active = activeChain_.load(std::memory_order_acquire);

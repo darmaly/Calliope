@@ -1,19 +1,23 @@
 #include "calliope/project_state.h"
 #include "calliope/engine.h"
-#include "calliope/insert_chain_processor.h"
-#include "calliope/effects/parametric_eq.h"
-#include "calliope/effects/compressor.h"
-#include "calliope/effects/reverb.h"
-#include "calliope/effects/delay.h"
-#include "calliope/effects/limiter.h"
+#include "calliope/commands/effect_commands.h"
 
 namespace calliope {
+
+namespace {
+
+juce::var getOr(const juce::DynamicObject& obj, const char* name, const juce::var& fallback)
+{
+    return obj.hasProperty(name) ? obj.getProperty(name) : fallback;
+}
+
+} // namespace
 
 juce::String ProjectState::toJson() const
 {
     auto* root = new juce::DynamicObject();
+    root->setProperty("formatVersion", formatVersion);
 
-    // Transport
     auto* transportObj = new juce::DynamicObject();
     transportObj->setProperty("state", transport.state);
     transportObj->setProperty("bpm", transport.bpm);
@@ -24,80 +28,29 @@ juce::String ProjectState::toJson() const
     transportObj->setProperty("loopEndBeat", transport.loopEndBeat);
     root->setProperty("transport", juce::var(transportObj));
 
-    // Metronome
     auto* metronomeObj = new juce::DynamicObject();
     metronomeObj->setProperty("enabled", metronome.enabled);
     metronomeObj->setProperty("volume", static_cast<double>(metronome.volume));
     root->setProperty("metronome", juce::var(metronomeObj));
 
-    // MasterBus
     auto* masterBusObj = new juce::DynamicObject();
     masterBusObj->setProperty("volume", static_cast<double>(masterBus.volume));
     root->setProperty("masterBus", juce::var(masterBusObj));
 
-    // AudioConfig
     auto* audioConfigObj = new juce::DynamicObject();
     audioConfigObj->setProperty("sampleRate", audioConfig.sampleRate);
     audioConfigObj->setProperty("bufferSize", audioConfig.bufferSize);
     root->setProperty("audioConfig", juce::var(audioConfigObj));
 
-    // Instruments
-    auto* instrumentsObj = new juce::DynamicObject();
+    juce::Array<juce::var> tracksArray;
+    for (const auto& track : tracks) {
+        auto* trackObj = new juce::DynamicObject();
+        trackObj->setProperty("id", track.id);
+        trackObj->setProperty("instrument", track.instrument);
+        tracksArray.add(juce::var(trackObj));
+    }
+    root->setProperty("tracks", juce::var(tracksArray));
 
-    // PolySynth
-    auto* psObj = new juce::DynamicObject();
-    psObj->setProperty("osc1Waveform", polySynth.osc1Waveform);
-    psObj->setProperty("osc2Waveform", polySynth.osc2Waveform);
-    psObj->setProperty("oscMix", static_cast<double>(polySynth.oscMix));
-    psObj->setProperty("osc2Detune", static_cast<double>(polySynth.osc2Detune));
-    psObj->setProperty("filterCutoff", static_cast<double>(polySynth.filterCutoff));
-    psObj->setProperty("filterResonance", static_cast<double>(polySynth.filterResonance));
-    psObj->setProperty("filterEnvAmount", static_cast<double>(polySynth.filterEnvAmount));
-    psObj->setProperty("ampAttack", static_cast<double>(polySynth.ampAttack));
-    psObj->setProperty("ampDecay", static_cast<double>(polySynth.ampDecay));
-    psObj->setProperty("ampSustain", static_cast<double>(polySynth.ampSustain));
-    psObj->setProperty("ampRelease", static_cast<double>(polySynth.ampRelease));
-    psObj->setProperty("filterAttack", static_cast<double>(polySynth.filterAttack));
-    psObj->setProperty("filterDecay", static_cast<double>(polySynth.filterDecay));
-    psObj->setProperty("filterSustain", static_cast<double>(polySynth.filterSustain));
-    psObj->setProperty("filterRelease", static_cast<double>(polySynth.filterRelease));
-    psObj->setProperty("lfoRate", static_cast<double>(polySynth.lfoRate));
-    psObj->setProperty("lfoDepth", static_cast<double>(polySynth.lfoDepth));
-    psObj->setProperty("lfoTarget", polySynth.lfoTarget);
-    psObj->setProperty("masterGain", static_cast<double>(polySynth.masterGain));
-    instrumentsObj->setProperty("polysynth", juce::var(psObj));
-
-    // BassSynth
-    auto* bsObj = new juce::DynamicObject();
-    bsObj->setProperty("oscWaveform", bassSynth.oscWaveform);
-    bsObj->setProperty("subOscMix", static_cast<double>(bassSynth.subOscMix));
-    bsObj->setProperty("subOscOctave", bassSynth.subOscOctave);
-    bsObj->setProperty("filterCutoff", static_cast<double>(bassSynth.filterCutoff));
-    bsObj->setProperty("filterResonance", static_cast<double>(bassSynth.filterResonance));
-    bsObj->setProperty("filterEnvAmount", static_cast<double>(bassSynth.filterEnvAmount));
-    bsObj->setProperty("ampAttack", static_cast<double>(bassSynth.ampAttack));
-    bsObj->setProperty("ampDecay", static_cast<double>(bassSynth.ampDecay));
-    bsObj->setProperty("ampSustain", static_cast<double>(bassSynth.ampSustain));
-    bsObj->setProperty("ampRelease", static_cast<double>(bassSynth.ampRelease));
-    bsObj->setProperty("filterAttack", static_cast<double>(bassSynth.filterAttack));
-    bsObj->setProperty("filterDecay", static_cast<double>(bassSynth.filterDecay));
-    bsObj->setProperty("filterSustain", static_cast<double>(bassSynth.filterSustain));
-    bsObj->setProperty("filterRelease", static_cast<double>(bassSynth.filterRelease));
-    bsObj->setProperty("masterGain", static_cast<double>(bassSynth.masterGain));
-    instrumentsObj->setProperty("basssynth", juce::var(bsObj));
-
-    // DrumMachine
-    auto* dmObj = new juce::DynamicObject();
-    dmObj->setProperty("volume", static_cast<double>(drumMachine.volume));
-    juce::Array<juce::var> pads;
-    for (const auto& name : drumMachine.padNames)
-        pads.add(juce::var(name));
-    dmObj->setProperty("pads", juce::var(pads));
-    instrumentsObj->setProperty("drumMachine", juce::var(dmObj));
-
-    root->setProperty("instruments", juce::var(instrumentsObj));
-
-    // Effect chains
     juce::Array<juce::var> chainsArray;
     for (const auto& chainData : effectChains) {
         auto* chainObj = new juce::DynamicObject();
@@ -108,7 +61,6 @@ juce::String ProjectState::toJson() const
             auto* slotObj = new juce::DynamicObject();
             slotObj->setProperty("effectType", slot.effectType);
             slotObj->setProperty("bypassed", slot.bypassed);
-            slotObj->setProperty("parameters", slot.parameters);
             effectsArray.add(juce::var(slotObj));
         }
         chainObj->setProperty("effects", juce::var(effectsArray));
@@ -116,149 +68,138 @@ juce::String ProjectState::toJson() const
     }
     root->setProperty("effectChains", juce::var(chainsArray));
 
+    juce::Array<juce::var> clipsArray;
+    for (const auto& clip : clips) {
+        auto* clipObj = new juce::DynamicObject();
+        clipObj->setProperty("clipId", juce::String(clip.clipId));
+        clipObj->setProperty("trackId", juce::String(clip.trackId));
+        clipObj->setProperty("startBeat", clip.startBeat);
+        clipObj->setProperty("lengthBeats", clip.lengthBeats);
+
+        juce::Array<juce::var> notesArray;
+        for (const auto& note : clip.notes) {
+            auto* noteObj = new juce::DynamicObject();
+            noteObj->setProperty("pitch", note.pitch);
+            noteObj->setProperty("startBeat", note.startBeat);
+            noteObj->setProperty("lengthBeats", note.lengthBeats);
+            noteObj->setProperty("velocity", static_cast<double>(note.velocity));
+            notesArray.add(juce::var(noteObj));
+        }
+        clipObj->setProperty("notes", juce::var(notesArray));
+        clipsArray.add(juce::var(clipObj));
+    }
+    root->setProperty("clips", juce::var(clipsArray));
+
+    root->setProperty("parameters",
+                      parameters.isObject() ? parameters : juce::var(new juce::DynamicObject()));
+
     return juce::JSON::toString(juce::var(root));
 }
 
 bool ProjectState::fromJson(const juce::String& jsonString)
 {
     auto parsed = juce::JSON::parse(jsonString);
-    if (!parsed.isObject())
-        return false;
-
     auto* root = parsed.getDynamicObject();
     if (root == nullptr)
         return false;
 
-    // Transport
-    auto transportVar = root->getProperty("transport");
-    if (auto* transportObj = transportVar.getDynamicObject())
-    {
-        transport.state = transportObj->getProperty("state").toString();
-        transport.bpm = static_cast<double>(transportObj->getProperty("bpm"));
-        transport.timeSigNumerator = static_cast<int>(transportObj->getProperty("timeSigNumerator"));
-        transport.timeSigDenominator = static_cast<int>(transportObj->getProperty("timeSigDenominator"));
-        transport.looping = static_cast<bool>(transportObj->getProperty("looping"));
-        transport.loopStartBeat = static_cast<double>(transportObj->getProperty("loopStartBeat"));
-        transport.loopEndBeat = static_cast<double>(transportObj->getProperty("loopEndBeat"));
+    *this = ProjectState();
+    formatVersion = static_cast<int>(getOr(*root, "formatVersion", 1));
+
+    if (auto* obj = root->getProperty("transport").getDynamicObject()) {
+        transport.state = getOr(*obj, "state", transport.state).toString();
+        transport.bpm = static_cast<double>(getOr(*obj, "bpm", transport.bpm));
+        transport.timeSigNumerator = static_cast<int>(getOr(*obj, "timeSigNumerator", transport.timeSigNumerator));
+        transport.timeSigDenominator = static_cast<int>(getOr(*obj, "timeSigDenominator", transport.timeSigDenominator));
+        transport.looping = static_cast<bool>(getOr(*obj, "looping", transport.looping));
+        transport.loopStartBeat = static_cast<double>(getOr(*obj, "loopStartBeat", transport.loopStartBeat));
+        transport.loopEndBeat = static_cast<double>(getOr(*obj, "loopEndBeat", transport.loopEndBeat));
     }
 
-    // Metronome
-    auto metronomeVar = root->getProperty("metronome");
-    if (auto* metronomeObj = metronomeVar.getDynamicObject())
-    {
-        metronome.enabled = static_cast<bool>(metronomeObj->getProperty("enabled"));
-        metronome.volume = static_cast<float>(static_cast<double>(metronomeObj->getProperty("volume")));
+    if (auto* obj = root->getProperty("metronome").getDynamicObject()) {
+        metronome.enabled = static_cast<bool>(getOr(*obj, "enabled", metronome.enabled));
+        metronome.volume = static_cast<float>(static_cast<double>(getOr(*obj, "volume", static_cast<double>(metronome.volume))));
     }
 
-    // MasterBus
-    auto masterBusVar = root->getProperty("masterBus");
-    if (auto* masterBusObj = masterBusVar.getDynamicObject())
-    {
-        masterBus.volume = static_cast<float>(static_cast<double>(masterBusObj->getProperty("volume")));
+    if (auto* obj = root->getProperty("masterBus").getDynamicObject())
+        masterBus.volume = static_cast<float>(static_cast<double>(getOr(*obj, "volume", static_cast<double>(masterBus.volume))));
+
+    if (auto* obj = root->getProperty("audioConfig").getDynamicObject()) {
+        audioConfig.sampleRate = static_cast<double>(getOr(*obj, "sampleRate", audioConfig.sampleRate));
+        audioConfig.bufferSize = static_cast<int>(getOr(*obj, "bufferSize", audioConfig.bufferSize));
     }
 
-    // AudioConfig
-    auto audioConfigVar = root->getProperty("audioConfig");
-    if (auto* audioConfigObj = audioConfigVar.getDynamicObject())
-    {
-        audioConfig.sampleRate = static_cast<double>(audioConfigObj->getProperty("sampleRate"));
-        audioConfig.bufferSize = static_cast<int>(audioConfigObj->getProperty("bufferSize"));
-    }
-
-    // Instruments
-    auto instrumentsVar = root->getProperty("instruments");
-    if (auto* instrumentsObj = instrumentsVar.getDynamicObject())
-    {
-        // PolySynth
-        auto psVar = instrumentsObj->getProperty("polysynth");
-        if (auto* psObj = psVar.getDynamicObject())
-        {
-            polySynth.osc1Waveform = static_cast<int>(psObj->getProperty("osc1Waveform"));
-            polySynth.osc2Waveform = static_cast<int>(psObj->getProperty("osc2Waveform"));
-            polySynth.oscMix = static_cast<float>(static_cast<double>(psObj->getProperty("oscMix")));
-            polySynth.osc2Detune = static_cast<float>(static_cast<double>(psObj->getProperty("osc2Detune")));
-            polySynth.filterCutoff = static_cast<float>(static_cast<double>(psObj->getProperty("filterCutoff")));
-            polySynth.filterResonance = static_cast<float>(static_cast<double>(psObj->getProperty("filterResonance")));
-            polySynth.filterEnvAmount = static_cast<float>(static_cast<double>(psObj->getProperty("filterEnvAmount")));
-            polySynth.ampAttack = static_cast<float>(static_cast<double>(psObj->getProperty("ampAttack")));
-            polySynth.ampDecay = static_cast<float>(static_cast<double>(psObj->getProperty("ampDecay")));
-            polySynth.ampSustain = static_cast<float>(static_cast<double>(psObj->getProperty("ampSustain")));
-            polySynth.ampRelease = static_cast<float>(static_cast<double>(psObj->getProperty("ampRelease")));
-            polySynth.filterAttack = static_cast<float>(static_cast<double>(psObj->getProperty("filterAttack")));
-            polySynth.filterDecay = static_cast<float>(static_cast<double>(psObj->getProperty("filterDecay")));
-            polySynth.filterSustain = static_cast<float>(static_cast<double>(psObj->getProperty("filterSustain")));
-            polySynth.filterRelease = static_cast<float>(static_cast<double>(psObj->getProperty("filterRelease")));
-            polySynth.lfoRate = static_cast<float>(static_cast<double>(psObj->getProperty("lfoRate")));
-            polySynth.lfoDepth = static_cast<float>(static_cast<double>(psObj->getProperty("lfoDepth")));
-            polySynth.lfoTarget = static_cast<int>(psObj->getProperty("lfoTarget"));
-            polySynth.masterGain = static_cast<float>(static_cast<double>(psObj->getProperty("masterGain")));
-        }
-
-        // BassSynth
-        auto bsVar = instrumentsObj->getProperty("basssynth");
-        if (auto* bsObj = bsVar.getDynamicObject())
-        {
-            bassSynth.oscWaveform = static_cast<int>(bsObj->getProperty("oscWaveform"));
-            bassSynth.subOscMix = static_cast<float>(static_cast<double>(bsObj->getProperty("subOscMix")));
-            bassSynth.subOscOctave = static_cast<int>(bsObj->getProperty("subOscOctave"));
-            bassSynth.filterCutoff = static_cast<float>(static_cast<double>(bsObj->getProperty("filterCutoff")));
-            bassSynth.filterResonance = static_cast<float>(static_cast<double>(bsObj->getProperty("filterResonance")));
-            bassSynth.filterEnvAmount = static_cast<float>(static_cast<double>(bsObj->getProperty("filterEnvAmount")));
-            bassSynth.ampAttack = static_cast<float>(static_cast<double>(bsObj->getProperty("ampAttack")));
-            bassSynth.ampDecay = static_cast<float>(static_cast<double>(bsObj->getProperty("ampDecay")));
-            bassSynth.ampSustain = static_cast<float>(static_cast<double>(bsObj->getProperty("ampSustain")));
-            bassSynth.ampRelease = static_cast<float>(static_cast<double>(bsObj->getProperty("ampRelease")));
-            bassSynth.filterAttack = static_cast<float>(static_cast<double>(bsObj->getProperty("filterAttack")));
-            bassSynth.filterDecay = static_cast<float>(static_cast<double>(bsObj->getProperty("filterDecay")));
-            bassSynth.filterSustain = static_cast<float>(static_cast<double>(bsObj->getProperty("filterSustain")));
-            bassSynth.filterRelease = static_cast<float>(static_cast<double>(bsObj->getProperty("filterRelease")));
-            bassSynth.masterGain = static_cast<float>(static_cast<double>(bsObj->getProperty("masterGain")));
-        }
-
-        // DrumMachine
-        auto dmVar = instrumentsObj->getProperty("drumMachine");
-        if (auto* dmObj = dmVar.getDynamicObject())
-        {
-            drumMachine.volume = static_cast<float>(static_cast<double>(dmObj->getProperty("volume")));
-            drumMachine.padNames.clear();
-            auto padsVar = dmObj->getProperty("pads");
-            if (auto* padsArray = padsVar.getArray()) {
-                for (const auto& p : *padsArray)
-                    drumMachine.padNames.push_back(p.toString());
+    if (auto* tracksArray = root->getProperty("tracks").getArray()) {
+        for (const auto& trackVar : *tracksArray) {
+            if (auto* obj = trackVar.getDynamicObject()) {
+                TrackData track;
+                track.id = obj->getProperty("id").toString();
+                track.instrument = obj->getProperty("instrument").toString();
+                if (track.id.isNotEmpty())
+                    tracks.push_back(std::move(track));
             }
         }
     }
 
-    // Effect chains
-    effectChains.clear();
-    auto chainsVar = root->getProperty("effectChains");
-    if (auto* chainsArray = chainsVar.getArray()) {
+    if (auto* chainsArray = root->getProperty("effectChains").getArray()) {
         for (const auto& chainVar : *chainsArray) {
-            if (auto* chainObj = chainVar.getDynamicObject()) {
-                InsertChainData chainData;
-                chainData.trackId = chainObj->getProperty("trackId").toString();
-                auto effectsVar = chainObj->getProperty("effects");
-                if (auto* effectsArray = effectsVar.getArray()) {
-                    for (const auto& slotVar : *effectsArray) {
-                        if (auto* slotObj = slotVar.getDynamicObject()) {
-                            EffectSlotData slot;
-                            slot.effectType = slotObj->getProperty("effectType").toString();
-                            slot.bypassed = static_cast<bool>(slotObj->getProperty("bypassed"));
-                            slot.parameters = slotObj->getProperty("parameters");
-                            chainData.effects.push_back(std::move(slot));
-                        }
+            auto* chainObj = chainVar.getDynamicObject();
+            if (chainObj == nullptr) continue;
+
+            InsertChainData chainData;
+            chainData.trackId = chainObj->getProperty("trackId").toString();
+            if (auto* effectsArray = chainObj->getProperty("effects").getArray()) {
+                for (const auto& slotVar : *effectsArray) {
+                    if (auto* slotObj = slotVar.getDynamicObject()) {
+                        EffectSlotData slot;
+                        slot.effectType = slotObj->getProperty("effectType").toString();
+                        slot.bypassed = static_cast<bool>(slotObj->getProperty("bypassed"));
+                        chainData.effects.push_back(std::move(slot));
                     }
                 }
-                effectChains.push_back(std::move(chainData));
             }
+            effectChains.push_back(std::move(chainData));
         }
     }
+
+    if (auto* clipsArray = root->getProperty("clips").getArray()) {
+        for (const auto& clipVar : *clipsArray) {
+            auto* clipObj = clipVar.getDynamicObject();
+            if (clipObj == nullptr) continue;
+
+            MidiClipData clip;
+            clip.clipId = clipObj->getProperty("clipId").toString().toStdString();
+            clip.trackId = clipObj->getProperty("trackId").toString().toStdString();
+            clip.startBeat = static_cast<double>(clipObj->getProperty("startBeat"));
+            clip.lengthBeats = static_cast<double>(clipObj->getProperty("lengthBeats"));
+            if (auto* notesArray = clipObj->getProperty("notes").getArray()) {
+                for (const auto& noteVar : *notesArray) {
+                    if (auto* noteObj = noteVar.getDynamicObject()) {
+                        MidiNoteData note;
+                        note.pitch = static_cast<int>(noteObj->getProperty("pitch"));
+                        note.startBeat = static_cast<double>(noteObj->getProperty("startBeat"));
+                        note.lengthBeats = static_cast<double>(noteObj->getProperty("lengthBeats"));
+                        note.velocity = static_cast<float>(static_cast<double>(noteObj->getProperty("velocity")));
+                        clip.notes.push_back(note);
+                    }
+                }
+            }
+            if (!clip.clipId.empty())
+                clips.push_back(std::move(clip));
+        }
+    }
+
+    auto parametersVar = root->getProperty("parameters");
+    if (parametersVar.isObject())
+        parameters = parametersVar;
 
     return true;
 }
 
 void ProjectState::snapshotFromEngine(const Engine& engine)
 {
+    *this = ProjectState();
+
     auto transportInfo = engine.getTransportState();
     transport.state = juce::String(transportInfo.state);
     transport.bpm = transportInfo.bpm;
@@ -272,119 +213,53 @@ void ProjectState::snapshotFromEngine(const Engine& engine)
     audioConfig.sampleRate = audioInfo.sampleRate;
     audioConfig.bufferSize = audioInfo.bufferSize;
 
-    // Access metronome and master bus via audio graph
-    // Note: const_cast needed because Engine::getAudioGraph() is non-const
+    if (!engine.isInitialised())
+        return;
+
+    // The accessors below are non-const on Engine but do not modify it.
     auto& mutableEngine = const_cast<Engine&>(engine);
     auto& graph = mutableEngine.getAudioGraph();
+
     metronome.enabled = graph.getMetronome().enabled.load();
     metronome.volume = graph.getMetronome().volume.load();
     masterBus.volume = graph.getMasterBus().masterVolume.load();
 
-    // Instruments
-    auto& ps = graph.getPolySynth();
-    polySynth.osc1Waveform = ps.osc1Waveform.load();
-    polySynth.osc2Waveform = ps.osc2Waveform.load();
-    polySynth.oscMix = ps.oscMix.load();
-    polySynth.osc2Detune = ps.osc2Detune.load();
-    polySynth.filterCutoff = ps.filterCutoff.load();
-    polySynth.filterResonance = ps.filterResonance.load();
-    polySynth.filterEnvAmount = ps.filterEnvAmount.load();
-    polySynth.ampAttack = ps.ampAttack.load();
-    polySynth.ampDecay = ps.ampDecay.load();
-    polySynth.ampSustain = ps.ampSustain.load();
-    polySynth.ampRelease = ps.ampRelease.load();
-    polySynth.filterAttack = ps.filterAttack.load();
-    polySynth.filterDecay = ps.filterDecay.load();
-    polySynth.filterSustain = ps.filterSustain.load();
-    polySynth.filterRelease = ps.filterRelease.load();
-    polySynth.lfoRate = ps.lfoRate.load();
-    polySynth.lfoDepth = ps.lfoDepth.load();
-    polySynth.lfoTarget = ps.lfoTarget.load();
-    polySynth.masterGain = ps.masterGain.load();
+    std::vector<juce::String> chainIds;
+    for (const auto& trackId : graph.getTrackIds()) {
+        TrackData track;
+        track.id = juce::String(trackId);
+        track.instrument = juce::String(graph.getTrackInstrumentType(trackId));
+        chainIds.push_back(track.id);
+        tracks.push_back(std::move(track));
+    }
+    chainIds.push_back("master");
 
-    auto& bsSynth = graph.getBassSynth();
-    bassSynth.oscWaveform = bsSynth.oscWaveform.load();
-    bassSynth.subOscMix = bsSynth.subOscMix.load();
-    bassSynth.subOscOctave = bsSynth.subOscOctave.load();
-    bassSynth.filterCutoff = bsSynth.filterCutoff.load();
-    bassSynth.filterResonance = bsSynth.filterResonance.load();
-    bassSynth.filterEnvAmount = bsSynth.filterEnvAmount.load();
-    bassSynth.ampAttack = bsSynth.ampAttack.load();
-    bassSynth.ampDecay = bsSynth.ampDecay.load();
-    bassSynth.ampSustain = bsSynth.ampSustain.load();
-    bassSynth.ampRelease = bsSynth.ampRelease.load();
-    bassSynth.filterAttack = bsSynth.filterAttack.load();
-    bassSynth.filterDecay = bsSynth.filterDecay.load();
-    bassSynth.filterSustain = bsSynth.filterSustain.load();
-    bassSynth.filterRelease = bsSynth.filterRelease.load();
-    bassSynth.masterGain = bsSynth.masterGain.load();
+    for (const auto& chainId : chainIds) {
+        auto* chain = graph.findInsertChain(chainId);
+        if (chain == nullptr || chain->getNumEffects() == 0) continue;
 
-    auto& dm = graph.getDrumMachine();
-    drumMachine.volume = dm.volume.load();
-    drumMachine.padNames.clear();
-    auto names = dm.getSampleNames();
-    for (const auto& n : names)
-        drumMachine.padNames.push_back(n);
-
-    // Effect chains
-    effectChains.clear();
-    const juce::String trackIds[] = { "polysynth", "basssynth", "drumMachine", "master" };
-    for (const auto& tid : trackIds) {
         InsertChainData chainData;
-        chainData.trackId = tid;
-
-        auto& chain = graph.getInsertChain(tid);
-        int numEffects = chain.getNumEffects();
-        for (int i = 0; i < numEffects; ++i) {
+        chainData.trackId = chainId;
+        for (int i = 0; i < chain->getNumEffects(); ++i) {
+            auto* effect = chain->getEffect(i);
+            if (effect == nullptr) continue;
             EffectSlotData slot;
-            auto* effect = chain.getEffect(i);
-            if (!effect) continue;
-
-            slot.effectType = effect->getName();
-            slot.bypassed = chain.isBypassed(i);
-
-            // Capture parameters as JSON object
-            auto* paramsObj = new juce::DynamicObject();
-
-            if (auto* eq = dynamic_cast<ParametricEqProcessor*>(effect)) {
-                for (int b = 0; b < 4; ++b) {
-                    juce::String bp = "band" + juce::String(b) + ".";
-                    paramsObj->setProperty(bp + "frequency", static_cast<double>(eq->bands[b].frequency.load()));
-                    paramsObj->setProperty(bp + "q", static_cast<double>(eq->bands[b].q.load()));
-                    paramsObj->setProperty(bp + "gainDb", static_cast<double>(eq->bands[b].gainDb.load()));
-                    paramsObj->setProperty(bp + "enabled", eq->bands[b].enabled.load());
-                }
-            }
-            else if (auto* comp = dynamic_cast<CompressorProcessor*>(effect)) {
-                paramsObj->setProperty("threshold", static_cast<double>(comp->threshold.load()));
-                paramsObj->setProperty("ratio", static_cast<double>(comp->ratio.load()));
-                paramsObj->setProperty("attack", static_cast<double>(comp->attack.load()));
-                paramsObj->setProperty("release", static_cast<double>(comp->release.load()));
-                paramsObj->setProperty("makeupGain", static_cast<double>(comp->makeupGain.load()));
-            }
-            else if (auto* reverb = dynamic_cast<ReverbProcessor*>(effect)) {
-                paramsObj->setProperty("roomSize", static_cast<double>(reverb->roomSize.load()));
-                paramsObj->setProperty("damping", static_cast<double>(reverb->damping.load()));
-                paramsObj->setProperty("wetLevel", static_cast<double>(reverb->wetLevel.load()));
-                paramsObj->setProperty("dryLevel", static_cast<double>(reverb->dryLevel.load()));
-                paramsObj->setProperty("preDelay", static_cast<double>(reverb->preDelay.load()));
-            }
-            else if (auto* delay = dynamic_cast<DelayProcessor*>(effect)) {
-                paramsObj->setProperty("feedback", static_cast<double>(delay->feedback.load()));
-                paramsObj->setProperty("wetDry", static_cast<double>(delay->wetDry.load()));
-                paramsObj->setProperty("syncNoteValue", static_cast<double>(delay->syncNoteValue.load()));
-                paramsObj->setProperty("pingPongEnabled", delay->pingPongEnabled.load());
-            }
-            else if (auto* lim = dynamic_cast<LimiterProcessor*>(effect)) {
-                paramsObj->setProperty("threshold", static_cast<double>(lim->threshold.load()));
-                paramsObj->setProperty("release", static_cast<double>(lim->release.load()));
-            }
-
-            slot.parameters = juce::var(paramsObj);
+            slot.effectType = effectTypeForProcessor(*effect);
+            slot.bypassed = chain->isBypassed(i);
             chainData.effects.push_back(std::move(slot));
         }
         effectChains.push_back(std::move(chainData));
     }
+
+    clips = graph.getClipScheduler().getClips();
+
+    auto* parametersObj = new juce::DynamicObject();
+    auto& registry = mutableEngine.getParameterRegistry();
+    for (const auto& id : registry.getAllParameterIds()) {
+        if (const auto* def = registry.getParameter(id))
+            parametersObj->setProperty(id, def->getter());
+    }
+    parameters = juce::var(parametersObj);
 }
 
 } // namespace calliope

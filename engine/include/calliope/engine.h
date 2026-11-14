@@ -21,33 +21,35 @@ public:
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
 
-    // Preserved from Phase 1 for backward compatibility
     static std::string getJuceVersion();
     static std::vector<std::string> getAudioDevices();
 
-    // Legacy test tone (preserved for Phase 1 bridge compatibility)
+    // Legacy test tone (Phase 1 proof of life)
     static bool startTestTone(double frequency, int deviceIndex = -1);
     static void stopTestTone();
 
-    // New Phase 2 API
+    // Lifecycle. initialise() is idempotent; shutdown() allows a later initialise().
     bool initialise(double sampleRate = 44100.0, int bufferSize = 512);
     void shutdown();
     bool isInitialised() const;
 
-    // Sub-component access
+    // Sub-component access (engine must be initialised)
     AudioGraph& getAudioGraph();
     Transport& getTransport();
-
-    // Instrument access (Phase 4 convenience)
-    PolySynthProcessor& getPolySynth();
-    BassSynthProcessor& getBassSynth();
-    DrumMachineProcessor& getDrumMachine();
-
-    // Insert chain access (Phase 5)
-    InsertChain& getInsertChain(const juce::String& trackId);
-
-    // Clip scheduler access (Phase 10.1)
     ClipScheduler& getClipScheduler();
+
+    // --- Tracks ---
+    // Creates the track's instrument and channel, and registers its parameters
+    // as "track.{trackId}.{name}".
+    bool addTrack(const std::string& trackId, const std::string& instrumentType);
+    bool removeTrack(const std::string& trackId);
+
+    // Back to an empty project: no tracks, clips, effects or undo history,
+    // and default transport, metronome and master settings.
+    void resetProject();
+
+    // Insert chain of a track or of "master". Null when the ID is unknown.
+    InsertChain* findInsertChain(const juce::String& trackId);
 
     // Dynamic effect parameter registration/unregistration
     void registerEffectParameters(const juce::String& trackId, int slotIndex, juce::AudioProcessor* effect);
@@ -67,7 +69,10 @@ public:
     // Command dispatcher and parameter registry
     CommandDispatcher& getCommandDispatcher();
     ParameterRegistry& getParameterRegistry();
+
+    // Project state: a complete, replayable description of the engine.
     ProjectState getProjectState() const;
+    bool applyProjectState(const ProjectState& state);
 
     // Metering (delegates to AudioGraph)
     AudioGraph::AllMeterLevels getMeterLevels() const;
@@ -107,7 +112,9 @@ private:
     CommandDispatcher dispatcher_;
     ParameterRegistry paramRegistry_;
 
-    void registerParameters();
+    void registerGlobalParameters();
+    void registerTrackParameters(const std::string& trackId);
+    void unregisterTrackParameters(const std::string& trackId);
 };
 
 } // namespace calliope

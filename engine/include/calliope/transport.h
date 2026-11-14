@@ -32,6 +32,7 @@ public:
     int getTimeSignatureDenominator() const;
     int64_t getSamplePosition() const;
     double getPpqPosition() const;
+    double getSampleRate() const;
     bool isLooping() const;
     double getLoopStartBeat() const;
     double getLoopEndBeat() const;

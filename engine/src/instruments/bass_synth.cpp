@@ -20,6 +20,10 @@ const juce::String BassSynthProcessor::getName() const { return "BassSynth"; }
 void BassSynthProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
     synth_.setCurrentPlaybackSampleRate(sampleRate);
+
+    // Reserve now so queuing MIDI from the audio thread does not allocate.
+    const juce::SpinLock::ScopedLockType lock(midiLock_);
+    pendingMidi_.ensureSize(4096);
 }
 
 void BassSynthProcessor::releaseResources() {}
@@ -39,10 +43,10 @@ void BassSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     buffer.applyGain(gain);
 }
 
-void BassSynthProcessor::addMidiEvent(const juce::MidiMessage& msg)
+void BassSynthProcessor::addMidiEvent(const juce::MidiMessage& msg, int sampleOffset)
 {
     const juce::SpinLock::ScopedLockType lock(midiLock_);
-    pendingMidi_.addEvent(msg, 0);
+    pendingMidi_.addEvent(msg, juce::jmax(0, sampleOffset));
 }
 
 double BassSynthProcessor::getTailLengthSeconds() const { return 0.0; }

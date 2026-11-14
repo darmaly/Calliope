@@ -4,7 +4,13 @@
 namespace calliope {
 
 InsertChainProcessor::InsertChainProcessor(const juce::String& trackId)
-    : trackId_(trackId)
+    // The buses must be declared and enabled: AudioProcessor's default
+    // constructor leaves them disabled, which gives the node zero channels and
+    // makes the graph refuse every connection to or from it.
+    : AudioProcessor(BusesProperties()
+                         .withInput("Input", juce::AudioChannelSet::stereo())
+                         .withOutput("Output", juce::AudioChannelSet::stereo())),
+      trackId_(trackId)
 {
 }
 
@@ -16,29 +22,65 @@ const juce::String InsertChainProcessor::getName() const
 void InsertChainProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     chain_.prepareToPlay(sampleRate, samplesPerBlock);
+    gainLeft_.reset(sampleRate, 0.02);
+    gainRight_.reset(sampleRate, 0.02);
 }
 
 void InsertChainProcessor::releaseResources()
 {
 }
 
+void InsertChainProcessor::reset()
+{
+    chain_.reset();
+    // Jump straight to the current fader position instead of ramping to it.
+    updateGainTargets();
+    gainLeft_.setCurrentAndTargetValue(gainLeft_.getTargetValue());
+    gainRight_.setCurrentAndTargetValue(gainRight_.getTargetValue());
+}
+
+void InsertChainProcessor::updateGainTargets()
+{
+    // Constant-power pan law, normalised so that centre is unity on both sides.
+    const bool silent = mute.load(std::memory_order_relaxed)
+                     || soloMuted.load(std::memory_order_relaxed);
+    const float gain = silent ? 0.0f : juce::jlimit(0.0f, 2.0f, volume.load(std::memory_order_relaxed));
+    const float panValue = juce::jlimit(-1.0f, 1.0f, pan.load(std::memory_order_relaxed));
+    const float angle = (panValue + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
+    const float sqrt2 = juce::MathConstants<float>::sqrt2;
+
+    gainLeft_.setTargetValue(gain * std::cos(angle) * sqrt2);
+    gainRight_.setTargetValue(gain * std::sin(angle) * sqrt2);
+}
+
 void InsertChainProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     chain_.processBlock(buffer, midi);
 
-    // Meter computation -- after insert chain processing
     const int numSamples = buffer.getNumSamples();
-    for (int ch = 0; ch < std::min(buffer.getNumChannels(), 2); ++ch) {
+    const int numChannels = std::min(buffer.getNumChannels(), 2);
+
+    // Fader, pan and mute
+    updateGainTargets();
+
+    if (numChannels > 0)
+        gainLeft_.applyGain(buffer.getWritePointer(0), numSamples);
+    if (numChannels > 1)
+        gainRight_.applyGain(buffer.getWritePointer(1), numSamples);
+    else
+        gainRight_.skip(numSamples);
+
+    // Post-fader metering
+    for (int ch = 0; ch < numChannels; ++ch) {
         const float* data = buffer.getReadPointer(ch);
         float sum = 0.0f;
         float peak = 0.0f;
         for (int i = 0; i < numSamples; ++i) {
-            float s = data[i];
+            const float s = data[i];
             sum += s * s;
-            float absVal = std::fabs(s);
-            if (absVal > peak) peak = absVal;
+            peak = std::max(peak, std::fabs(s));
         }
-        float rms = std::sqrt(sum / static_cast<float>(numSamples));
+        const float rms = numSamples > 0 ? std::sqrt(sum / static_cast<float>(numSamples)) : 0.0f;
         if (ch == 0) {
             meterData_.rmsLeft.store(rms, std::memory_order_relaxed);
             meterData_.peakLeft.store(peak, std::memory_order_relaxed);

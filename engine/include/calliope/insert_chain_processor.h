@@ -5,9 +5,9 @@
 
 namespace calliope {
 
-// InsertChainProcessor wraps an InsertChain as an AudioProcessor,
-// making it a node in the AudioProcessorGraph. Each track and the
-// master bus get their own InsertChainProcessor.
+// A mixer channel as a node in the AudioProcessorGraph: insert effects, then
+// volume / pan / mute, then metering. Every track has one, and so does the
+// master bus (where volume, pan and mute are simply left at their defaults).
 class InsertChainProcessor : public juce::AudioProcessor {
 public:
     explicit InsertChainProcessor(const juce::String& trackId);
@@ -16,6 +16,7 @@ public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
+    void reset() override;
 
     double getTailLengthSeconds() const override;
     bool acceptsMidi() const override;
@@ -39,7 +40,13 @@ public:
     // Track identifier
     const juce::String& getTrackId() const;
 
-    // Metering (Phase 8)
+    // Channel controls (any thread)
+    std::atomic<float> volume{1.0f};      // linear gain, 0.0 - 2.0
+    std::atomic<float> pan{0.0f};         // -1.0 (left) .. +1.0 (right)
+    std::atomic<bool> mute{false};
+    std::atomic<bool> soloMuted{false};   // silenced because another track is soloed
+
+    // Metering, post fader
     struct MeterData {
         std::atomic<float> rmsLeft{0.0f};
         std::atomic<float> rmsRight{0.0f};
@@ -52,6 +59,12 @@ private:
     juce::String trackId_;
     InsertChain chain_;
     MeterData meterData_;
+
+    // Ramped so fader moves and mute toggles do not click.
+    juce::SmoothedValue<float> gainLeft_{1.0f};
+    juce::SmoothedValue<float> gainRight_{1.0f};
+
+    void updateGainTargets();
 };
 
 } // namespace calliope

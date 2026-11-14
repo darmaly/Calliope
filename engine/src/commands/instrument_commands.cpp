@@ -6,17 +6,10 @@ namespace calliope {
 
 bool NoteOnCommand::perform()
 {
-    // Resolve to the correct instrument type and call addMidiEvent
-    if (auto* ps = dynamic_cast<PolySynthProcessor*>(&processor_)) {
-        ps->addMidiEvent(juce::MidiMessage::noteOn(1, note_, velocity_));
-        return true;
-    }
-    if (auto* bs = dynamic_cast<BassSynthProcessor*>(&processor_)) {
-        bs->addMidiEvent(juce::MidiMessage::noteOn(1, note_, velocity_));
-        return true;
-    }
-    if (auto* dm = dynamic_cast<DrumMachineProcessor*>(&processor_)) {
-        dm->addMidiEvent(juce::MidiMessage::noteOn(1, note_, velocity_));
+    // Every built-in instrument is a MidiSink.
+    if (auto* sink = dynamic_cast<MidiSink*>(&processor_)) {
+        sink->addMidiEvent(juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note_),
+                                                     juce::jlimit(0.0f, 1.0f, velocity_)));
         return true;
     }
     return false;
@@ -34,16 +27,8 @@ juce::var NoteOnCommand::getEventData() const
 
 bool NoteOffCommand::perform()
 {
-    if (auto* ps = dynamic_cast<PolySynthProcessor*>(&processor_)) {
-        ps->addMidiEvent(juce::MidiMessage::noteOff(1, note_));
-        return true;
-    }
-    if (auto* bs = dynamic_cast<BassSynthProcessor*>(&processor_)) {
-        bs->addMidiEvent(juce::MidiMessage::noteOff(1, note_));
-        return true;
-    }
-    if (auto* dm = dynamic_cast<DrumMachineProcessor*>(&processor_)) {
-        dm->addMidiEvent(juce::MidiMessage::noteOff(1, note_));
+    if (auto* sink = dynamic_cast<MidiSink*>(&processor_)) {
+        sink->addMidiEvent(juce::MidiMessage::noteOff(1, juce::jlimit(0, 127, note_)));
         return true;
     }
     return false;

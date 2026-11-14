@@ -77,6 +77,11 @@ bool CommandDispatcher::canRedo() const
     return undoManager_.canRedo();
 }
 
+void CommandDispatcher::clearHistory()
+{
+    undoManager_.clearUndoHistory();
+}
+
 juce::String CommandDispatcher::getUndoDescription() const
 {
     return undoManager_.getUndoDescription();

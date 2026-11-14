@@ -1,16 +1,14 @@
 #pragma once
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "calliope/midi_sink.h"
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <map>
-#include <mutex>
 
 namespace calliope {
-
-// Forward declarations
-class PolySynthProcessor;
-class BassSynthProcessor;
-class DrumMachineProcessor;
 
 struct MidiNoteData {
     int pitch;           // 0-127
@@ -21,66 +19,94 @@ struct MidiNoteData {
 
 struct MidiClipData {
     std::string clipId;
-    std::string trackId;      // "polysynth", "basssynth", "drumMachine"
+    std::string trackId;
     double startBeat;         // absolute beat position on timeline
     double lengthBeats;
     std::vector<MidiNoteData> notes;
 };
 
+// Turns clips into MIDI for each track's instrument.
+//
+// Edits (clips, track sinks) happen on a control thread and publish an
+// immutable snapshot. The audio thread reads the latest snapshot without
+// taking the edit lock, and positions every event on its exact sample.
 class ClipScheduler {
 public:
     ClipScheduler();
+    ~ClipScheduler();
 
-    // Clip CRUD (called from bridge thread, mutex-protected)
+    // --- Control thread ---
     void addClip(const MidiClipData& clip);
     void removeClip(const std::string& clipId);
     void updateClip(const MidiClipData& clip);
     void clearClips();
+    void removeClipsForTrack(const std::string& trackId);
     int getClipCount() const;
+    std::vector<MidiClipData> getClips() const;
 
-    // Called each audio callback BEFORE instrument processBlock.
-    // Reads transport position, determines which MIDI events fall in the current
-    // block's beat range, and dispatches noteOn/noteOff via addMidiEvent.
-    void processBlock(
-        int numSamples,
-        double sampleRate,
-        double bpm,
-        double currentPpqPosition,
-        bool isPlaying,
-        bool isLooping,
-        double loopStartBeat,
-        double loopEndBeat,
-        PolySynthProcessor* polySynth,
-        BassSynthProcessor* bassSynth,
-        DrumMachineProcessor* drumMachine
-    );
+    // Beat at which the last clip ends (0 when there are no clips).
+    double getEndBeat() const;
+
+    // Register where a track's MIDI goes. keepAlive is held for as long as any
+    // snapshot can still reach the sink, so the sink may be owned elsewhere.
+    void setTrackSink(const std::string& trackId, MidiSink* sink,
+                      std::shared_ptr<void> keepAlive = {});
+    void removeTrackSink(const std::string& trackId);
+    void clearTrackSinks();
+
+    // --- Audio thread ---
+    // Call once per block, before the instruments render it.
+    // blockStartSample is the transport position of the block's first sample.
+    void processBlock(int numSamples,
+                      double sampleRate,
+                      double bpm,
+                      int64_t blockStartSample,
+                      bool isPlaying,
+                      bool isLooping,
+                      double loopStartBeat,
+                      double loopEndBeat);
 
 private:
-    mutable std::mutex clipMutex_;
-    std::map<std::string, MidiClipData> clips_;
+    static constexpr double kTicksPerBeat = 1000000.0;
 
-    // Track active notes to send noteOff when stopping
-    struct ActiveNote {
-        std::string trackId;
+    struct Event {
+        int64_t tick;      // absolute position in 1/1,000,000 beat
+        int sinkIndex;
         int pitch;
-        double endBeat;  // absolute beat where noteOff should fire
+        float velocity;
+        bool noteOn;
     };
-    std::vector<ActiveNote> activeNotes_;
 
-    void dispatchMidiEvent(
-        const std::string& trackId, const juce::MidiMessage& msg,
-        PolySynthProcessor* polySynth,
-        BassSynthProcessor* bassSynth,
-        DrumMachineProcessor* drumMachine
-    );
+    struct Snapshot {
+        std::vector<Event> events;                    // sorted by (tick, offs first)
+        std::vector<MidiSink*> sinks;
+        std::vector<std::shared_ptr<void>> keepAlive;
+    };
 
-    void allNotesOff(
-        PolySynthProcessor* polySynth,
-        BassSynthProcessor* bassSynth,
-        DrumMachineProcessor* drumMachine
-    );
+    struct SinkEntry {
+        MidiSink* sink = nullptr;
+        std::shared_ptr<void> keepAlive;
+    };
 
+    // Control-thread state
+    mutable std::mutex editMutex_;
+    std::map<std::string, MidiClipData> clips_;
+    std::map<std::string, SinkEntry> sinks_;
+    std::vector<std::shared_ptr<const Snapshot>> retired_;
+
+    // Shared: written with std::atomic_store, read with std::atomic_load
+    std::shared_ptr<const Snapshot> current_;
+
+    // Audio-thread state
+    std::shared_ptr<const Snapshot> active_;
     bool wasPlaying_ = false;
+    int64_t expectedNextSample_ = -1;
+
+    void publish();  // editMutex_ must be held
+
+    static void allNotesOff(const Snapshot& snapshot, int sampleOffset);
+    static void emitRange(const Snapshot& snapshot, double samplesPerBeat,
+                          int64_t rangeStart, int64_t rangeEnd, int bufferOffset);
 };
 
 } // namespace calliope

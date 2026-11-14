@@ -52,8 +52,10 @@ TEST_CASE("AudioExporter exportMix creates WAV file", "[export][integration]") {
     engine.initialise(44100.0, 512);
     calliope::AudioExporter exporter(engine);
 
+    auto outputFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                          .getChildFile("calliope_test_export.wav");
     calliope::ExportOptions opts;
-    opts.outputPath = "/tmp/calliope_test_export.wav";
+    opts.outputPath = outputFile.getFullPathName().toStdString();
     opts.format = calliope::ExportFormat::WAV_16;
     opts.totalBeats = 4.0;
 

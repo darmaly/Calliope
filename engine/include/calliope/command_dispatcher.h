@@ -20,6 +20,9 @@ public:
     bool redo();
     bool canUndo() const;
     bool canRedo() const;
+
+    // Forget all undo/redo history (used when the objects it refers to go away).
+    void clearHistory();
     juce::String getUndoDescription() const;
     juce::String getRedoDescription() const;
 

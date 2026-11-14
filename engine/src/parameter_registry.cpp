@@ -22,6 +22,11 @@ void ParameterRegistry::removeParametersWithPrefix(const juce::String& prefix)
     }
 }
 
+void ParameterRegistry::clear()
+{
+    params_.clear();
+}
+
 const ParameterRegistry::ParameterDef* ParameterRegistry::getParameter(const juce::String& id) const
 {
     auto it = params_.find(id);

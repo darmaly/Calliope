@@ -13,6 +13,7 @@ add_library(calliope_engine STATIC
     src/commands/instrument_commands.cpp
     src/commands/effect_commands.cpp
     src/instruments/drum_machine.cpp
+    src/instruments/drum_kit.cpp
     src/instruments/poly_synth.cpp
     src/instruments/poly_synth_voice.cpp
     src/instruments/bass_synth.cpp
@@ -29,10 +30,14 @@ add_library(calliope_engine STATIC
     src/project_serializer.cpp
 )
 
-target_include_directories(calliope_engine PUBLIC include)
-
+# JUCE modules are INTERFACE libraries that carry their own sources. Linking
+# them PRIVATE compiles JUCE exactly once, into this static library; linking
+# them PUBLIC would recompile all of JUCE into every target that uses the
+# engine (the tests and the Node addon). The INTERFACE generator expressions
+# below still hand JUCE's include paths and definitions on to those targets.
+# This is the arrangement recommended in JUCE's "CMake API" documentation.
 target_link_libraries(calliope_engine
-    PUBLIC
+    PRIVATE
         juce::juce_core
         juce::juce_audio_basics
         juce::juce_audio_devices
@@ -49,5 +54,18 @@ target_compile_definitions(calliope_engine
         JUCE_STANDALONE_APPLICATION=0
         JUCE_USE_CURL=0
         JUCE_WEB_BROWSER=0
-        JUCE_DISPLAY_SPLASH_SCREEN=0
+    INTERFACE
+        $<TARGET_PROPERTY:calliope_engine,COMPILE_DEFINITIONS>
 )
+
+target_include_directories(calliope_engine
+    PUBLIC
+        include
+    INTERFACE
+        $<TARGET_PROPERTY:calliope_engine,INCLUDE_DIRECTORIES>
+)
+
+if(MSVC)
+    # Compile translation units in parallel.
+    target_compile_options(calliope_engine PRIVATE /MP)
+endif()

@@ -9,10 +9,35 @@
 
 namespace calliope {
 
+namespace {
+
+// Seconds rendered after the last clip so reverb and delay tails are kept.
+constexpr double kTailSeconds = 2.0;
+
+juce::String safeFileName(const juce::String& name)
+{
+    auto cleaned = juce::File::createLegalFileName(name.trim());
+    return cleaned.isEmpty() ? juce::String("track") : cleaned;
+}
+
+} // namespace
+
 AudioExporter::AudioExporter(Engine& engine) : engine_(engine) {}
 
+bool AudioExporter::isFormatSupported(ExportFormat format)
+{
+#ifdef CALLIOPE_HAS_LAME
+    juce::ignoreUnused(format);
+    return true;
+#else
+    return format != ExportFormat::MP3;
+#endif
+}
+
 // ---------------------------------------------------------------------------
-// MIDI JSON parsing — uses exact camelCase field names from JS contract
+// MIDI JSON parsing — uses exact camelCase field names from JS contract.
+// Kept for callers that still describe notes this way; exports themselves
+// render the clips the engine already holds.
 // ---------------------------------------------------------------------------
 
 std::vector<MidiEventData> AudioExporter::parseMidiEventsJson(const juce::String& jsonString)
@@ -20,9 +45,6 @@ std::vector<MidiEventData> AudioExporter::parseMidiEventsJson(const juce::String
     std::vector<MidiEventData> events;
 
     auto parsed = juce::JSON::parse(jsonString);
-    if (!parsed.isArray())
-        return events;
-
     auto* arr = parsed.getArray();
     if (!arr)
         return events;
@@ -43,176 +65,14 @@ std::vector<MidiEventData> AudioExporter::parseMidiEventsJson(const juce::String
 }
 
 // ---------------------------------------------------------------------------
-// Offline bounce — drives AudioProcessorGraph.processBlock() in a loop
+// Rendering
 // ---------------------------------------------------------------------------
 
-juce::AudioBuffer<float> AudioExporter::offlineBounce(
-    double totalBeats, double sampleRate, int bufferSize,
-    const std::vector<MidiEventData>& midiEvents,
-    ProgressCallback progress)
+double AudioExporter::resolveTotalBeats(double requested) const
 {
-    auto& graph = engine_.getAudioGraph();
-    auto& transport = graph.getTransport();
-
-    // Use project sample rate if not specified
-    if (sampleRate <= 0.0)
-        sampleRate = graph.getAudioConfig().sampleRate;
-
-    double bpm = transport.getBpm();
-
-    // Calculate total samples: totalBeats / bpm * 60 * sampleRate
-    // Add a small tail (1 second) for reverb/delay tails
-    double totalSeconds = (totalBeats / bpm) * 60.0 + 1.0;
-    int64_t totalSamples = static_cast<int64_t>(totalSeconds * sampleRate);
-
-    // Prepare output buffer
-    juce::AudioBuffer<float> output(2, static_cast<int>(totalSamples));
-    output.clear();
-
-    // Stop transport and reset position
-    transport.stop();
-    transport.setSampleRate(sampleRate);
-
-    // Prepare graph for offline rendering
-    graph.getTransport().stop();
-
-    // Prepare all processors in the graph
-    // We use the graph's processBlock directly — the graph is already set up
-    // We need to re-prepare at our offline sample rate / buffer size
-    // Note: We temporarily disconnect from audio device by just not using it
-
-    // Sort MIDI events by beat position for efficient scheduling
-    auto sortedEvents = midiEvents;
-    std::sort(sortedEvents.begin(), sortedEvents.end(),
-              [](const MidiEventData& a, const MidiEventData& b) {
-                  return a.beatPosition < b.beatPosition;
-              });
-
-    // Track note-off scheduling
-    struct PendingNoteOff {
-        double beatPosition;
-        int noteNumber;
-        int channel; // 1-based MIDI channel
-    };
-    std::vector<PendingNoteOff> pendingNoteOffs;
-
-    // Map trackId to MIDI channel for instrument routing
-    auto channelForTrack = [](const std::string& trackId) -> int {
-        if (trackId == "polySynth" || trackId == "polysynth") return 1;
-        if (trackId == "bassSynth" || trackId == "basssynth") return 2;
-        if (trackId == "drumMachine") return 10;
-        return 1; // default
-    };
-
-    // Process blocks
-    juce::AudioBuffer<float> blockBuffer(2, bufferSize);
-    juce::MidiBuffer midiBuffer;
-    int64_t samplesRendered = 0;
-    size_t nextEventIndex = 0;
-
-    // Start transport playing for proper time advancement
-    transport.play();
-
-    while (samplesRendered < totalSamples) {
-        int samplesThisBlock = static_cast<int>(
-            std::min(static_cast<int64_t>(bufferSize), totalSamples - samplesRendered));
-
-        blockBuffer.clear();
-        midiBuffer.clear();
-
-        // Calculate beat range for this block
-        double blockStartBeat = (static_cast<double>(samplesRendered) / sampleRate) * (bpm / 60.0);
-        double blockEndBeat = (static_cast<double>(samplesRendered + samplesThisBlock) / sampleRate) * (bpm / 60.0);
-
-        // Schedule note-on events that fall within this block
-        while (nextEventIndex < sortedEvents.size() &&
-               sortedEvents[nextEventIndex].beatPosition < blockEndBeat) {
-            const auto& evt = sortedEvents[nextEventIndex];
-            if (evt.beatPosition >= blockStartBeat) {
-                // Calculate sample offset within this block
-                double eventTimeSec = (evt.beatPosition / bpm) * 60.0;
-                int sampleOffset = static_cast<int>(eventTimeSec * sampleRate) - static_cast<int>(samplesRendered);
-                sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
-
-                int channel = channelForTrack(evt.trackId);
-                auto noteOn = juce::MidiMessage::noteOn(channel, evt.noteNumber,
-                    static_cast<juce::uint8>(juce::jlimit(1, 127, evt.velocity)));
-                midiBuffer.addEvent(noteOn, sampleOffset);
-
-                // Schedule note-off
-                pendingNoteOffs.push_back({
-                    evt.beatPosition + evt.durationBeats,
-                    evt.noteNumber,
-                    channel
-                });
-            }
-            nextEventIndex++;
-        }
-
-        // Schedule note-off events that fall within this block
-        for (auto it = pendingNoteOffs.begin(); it != pendingNoteOffs.end();) {
-            if (it->beatPosition < blockEndBeat) {
-                double offTimeSec = (it->beatPosition / bpm) * 60.0;
-                int sampleOffset = static_cast<int>(offTimeSec * sampleRate) - static_cast<int>(samplesRendered);
-                sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
-
-                auto noteOff = juce::MidiMessage::noteOff(it->channel, it->noteNumber);
-                midiBuffer.addEvent(noteOff, sampleOffset);
-                it = pendingNoteOffs.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        // Advance transport position manually
-        transport.advancePosition(samplesThisBlock);
-
-        // Process the graph
-        blockBuffer.setSize(2, samplesThisBlock, false, false, true);
-        blockBuffer.clear();
-        graph.getMasterBus().processBlock(blockBuffer, midiBuffer);
-
-        // Copy processed samples to output
-        for (int ch = 0; ch < 2; ++ch) {
-            output.copyFrom(ch, static_cast<int>(samplesRendered),
-                           blockBuffer, ch, 0, samplesThisBlock);
-        }
-
-        samplesRendered += samplesThisBlock;
-
-        // Report progress
-        if (progress) {
-            float pct = static_cast<float>(samplesRendered) / static_cast<float>(totalSamples);
-            progress(std::min(pct, 1.0f));
-        }
-    }
-
-    // Stop transport after rendering
-    transport.stop();
-
-    return output;
-}
-
-// ---------------------------------------------------------------------------
-// Single-track offline bounce (for stem export)
-// ---------------------------------------------------------------------------
-
-juce::AudioBuffer<float> AudioExporter::offlineBounceSingleTrack(
-    const juce::String& trackId, double totalBeats, double sampleRate,
-    int bufferSize, const std::vector<MidiEventData>& midiEvents)
-{
-    // Filter MIDI events for this track only
-    std::vector<MidiEventData> trackEvents;
-    for (const auto& evt : midiEvents) {
-        juce::String evtTrackId(evt.trackId);
-        if (evtTrackId.equalsIgnoreCase(trackId))
-            trackEvents.push_back(evt);
-    }
-
-    // For stem export, we render only events for this track
-    // The offline bounce will still route through the graph,
-    // but only this track's instrument will receive MIDI
-    return offlineBounce(totalBeats, sampleRate, bufferSize, trackEvents, nullptr);
+    if (requested > 0.0)
+        return requested;
+    return engine_.getAudioGraph().getClipScheduler().getEndBeat();
 }
 
 // ---------------------------------------------------------------------------
@@ -229,11 +89,12 @@ bool AudioExporter::writeWav(const juce::File& file, const juce::AudioBuffer<flo
 
     juce::WavAudioFormat wavFormat;
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        wavFormat.createWriterFor(stream.release(), sampleRate,
+        wavFormat.createWriterFor(stream.get(), sampleRate,
                                   static_cast<unsigned int>(buffer.getNumChannels()),
                                   bitDepth, {}, 0));
     if (!writer)
         return false;
+    stream.release();  // the writer owns the stream now
 
     return writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
 }
@@ -248,11 +109,12 @@ bool AudioExporter::writeFlac(const juce::File& file, const juce::AudioBuffer<fl
 
     juce::FlacAudioFormat flacFormat;
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        flacFormat.createWriterFor(stream.release(), sampleRate,
+        flacFormat.createWriterFor(stream.get(), sampleRate,
                                    static_cast<unsigned int>(buffer.getNumChannels()),
-                                   16, {}, 0));
+                                   24, {}, 0));
     if (!writer)
         return false;
+    stream.release();  // the writer owns the stream now
 
     return writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
 }
@@ -296,7 +158,6 @@ bool AudioExporter::writeMp3(const juce::File& file, const juce::AudioBuffer<flo
     while (samplesProcessed < numSamples) {
         int samplesThisChunk = std::min(chunkSize, numSamples - samplesProcessed);
 
-        // Interleave channels
         for (int s = 0; s < samplesThisChunk; ++s) {
             for (int ch = 0; ch < numChannels; ++ch) {
                 interleaved[static_cast<size_t>(s * numChannels + ch)] =
@@ -344,72 +205,83 @@ bool AudioExporter::writeMp3(const juce::File& file, const juce::AudioBuffer<flo
 
 bool AudioExporter::exportMix(const ExportOptions& options, ProgressCallback progress)
 {
-    if (options.outputPath.empty())
+    if (options.outputPath.empty() || !isFormatSupported(options.format))
+        return false;
+    if (!engine_.isInitialised())
         return false;
 
-    double sr = options.sampleRate > 0.0
-        ? options.sampleRate
-        : engine_.getAudioGraph().getAudioConfig().sampleRate;
+    const double totalBeats = resolveTotalBeats(options.totalBeats);
+    if (totalBeats <= 0.0)
+        return false;  // nothing to render
 
-    double totalBeats = options.totalBeats > 0.0 ? options.totalBeats : 4.0;
-
-    // Perform offline bounce
-    auto buffer = offlineBounce(totalBeats, sr, 512, options.midiEvents, progress);
-
+    auto& graph = engine_.getAudioGraph();
+    auto buffer = graph.renderOffline(totalBeats, kTailSeconds, {}, progress);
     if (buffer.getNumSamples() == 0)
         return false;
 
-    juce::File outputFile(options.outputPath);
+    const double sampleRate = graph.getAudioConfig().sampleRate;
+    juce::File outputFile(juce::String::fromUTF8(options.outputPath.c_str()));
+    outputFile.getParentDirectory().createDirectory();
 
     switch (options.format) {
-        case ExportFormat::WAV_16:
-            return writeWav(outputFile, buffer, sr, 16);
-        case ExportFormat::WAV_24:
-            return writeWav(outputFile, buffer, sr, 24);
-        case ExportFormat::FLAC:
-            return writeFlac(outputFile, buffer, sr);
-        case ExportFormat::MP3:
-            return writeMp3(outputFile, buffer, sr, options.mp3Bitrate);
+        case ExportFormat::WAV_16: return writeWav(outputFile, buffer, sampleRate, 16);
+        case ExportFormat::WAV_24: return writeWav(outputFile, buffer, sampleRate, 24);
+        case ExportFormat::FLAC:   return writeFlac(outputFile, buffer, sampleRate);
+        case ExportFormat::MP3:    return writeMp3(outputFile, buffer, sampleRate, options.mp3Bitrate);
     }
 
     return false;
 }
 
 // ---------------------------------------------------------------------------
-// Export stems
+// Export stems: one 24-bit WAV per track, each rendered with that track soloed
 // ---------------------------------------------------------------------------
 
 bool AudioExporter::exportStems(const StemExportOptions& options, ProgressCallback progress)
 {
-    if (options.outputDir.empty())
+    if (options.outputDir.empty() || !engine_.isInitialised())
         return false;
 
-    juce::File outputDir(options.outputDir);
-    if (!outputDir.exists())
-        outputDir.createDirectory();
+    const double totalBeats = resolveTotalBeats(options.totalBeats);
+    if (totalBeats <= 0.0)
+        return false;
 
-    double sr = options.sampleRate > 0.0
-        ? options.sampleRate
-        : engine_.getAudioGraph().getAudioConfig().sampleRate;
+    juce::File outputDir(juce::String::fromUTF8(options.outputDir.c_str()));
+    if (!outputDir.isDirectory() && !outputDir.createDirectory())
+        return false;
 
-    double totalBeats = options.totalBeats > 0.0 ? options.totalBeats : 4.0;
+    auto& graph = engine_.getAudioGraph();
+    const auto trackIds = graph.getTrackIds();
+    if (trackIds.empty())
+        return false;
 
-    // Track names to export
-    const juce::String trackIds[] = { "polysynth", "basssynth", "drumMachine" };
-    const juce::String trackNames[] = { "polySynth", "bassSynth", "drumMachine" };
-    int numTracks = 3;
+    const double sampleRate = graph.getAudioConfig().sampleRate;
+    const float numTracks = static_cast<float>(trackIds.size());
+    juce::StringArray usedNames;
 
-    for (int i = 0; i < numTracks; ++i) {
-        auto buffer = offlineBounceSingleTrack(trackIds[i], totalBeats, sr, 512,
-                                                options.midiEvents);
+    for (size_t i = 0; i < trackIds.size(); ++i) {
+        const auto& trackId = trackIds[i];
 
-        juce::File stemFile = outputDir.getChildFile(trackNames[i] + ".wav");
-        if (!writeWav(stemFile, buffer, sr, 24))
+        auto trackProgress = [&](float fraction) {
+            if (progress)
+                progress((static_cast<float>(i) + fraction) / numTracks);
+        };
+        auto buffer = graph.renderOffline(totalBeats, kTailSeconds, trackId, trackProgress);
+        if (buffer.getNumSamples() == 0)
             return false;
 
-        if (progress) {
-            progress(static_cast<float>(i + 1) / static_cast<float>(numTracks));
-        }
+        auto nameIt = options.trackNames.find(trackId);
+        auto baseName = safeFileName(nameIt != options.trackNames.end()
+                                         ? juce::String::fromUTF8(nameIt->second.c_str())
+                                         : juce::String(trackId));
+        // Two tracks may share a display name; never overwrite one stem with another.
+        auto fileName = baseName;
+        for (int suffix = 2; usedNames.contains(fileName, true); ++suffix)
+            fileName = baseName + " " + juce::String(suffix);
+        usedNames.add(fileName);
+
+        if (!writeWav(outputDir.getChildFile(fileName + ".wav"), buffer, sampleRate, 24))
+            return false;
     }
 
     return true;

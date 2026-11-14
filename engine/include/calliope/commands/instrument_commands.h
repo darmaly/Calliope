@@ -1,5 +1,6 @@
 #pragma once
 #include "calliope/command.h"
+#include "calliope/midi_sink.h"
 #include "calliope/instruments/poly_synth.h"
 #include "calliope/instruments/bass_synth.h"
 #include "calliope/instruments/drum_machine.h"

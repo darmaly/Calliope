@@ -22,6 +22,16 @@ std::unique_ptr<juce::AudioProcessor> createEffect(const juce::String& type)
     return nullptr;
 }
 
+juce::String effectTypeForProcessor(const juce::AudioProcessor& effect)
+{
+    if (dynamic_cast<const ParametricEqProcessor*>(&effect)) return "eq";
+    if (dynamic_cast<const CompressorProcessor*>(&effect))   return "compressor";
+    if (dynamic_cast<const ReverbProcessor*>(&effect))       return "reverb";
+    if (dynamic_cast<const DelayProcessor*>(&effect))        return "delay";
+    if (dynamic_cast<const LimiterProcessor*>(&effect))      return "limiter";
+    return {};
+}
+
 // --------------------------------------------------------------------------
 // InsertEffectCommand
 // --------------------------------------------------------------------------
